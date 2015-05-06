@@ -1,6 +1,6 @@
 # ML Components
 
-Repository for low-level production-grade ML inference. The current motivating example is CRF inference utilized by S2. It's currently 100% Java, but can also have Scala too.
+Repository for low-level production-grade ML inference. The current motivating example is CRF inference. It's currently 100% Java, but can also have Scala too.
 
 ## Getting Started
 
@@ -34,6 +34,3 @@ Lombok has a lot of useful annotations that give you some of the nice things in 
 
 Using [GSCollections](https://github.com/goldmansachs/gs-collections) which has been found as efficient as the best libraries across a wide-range of tasks (in particular way faster than [trove](http://trove.starlight-systems.com)).
 
-## Project Features
-
-### CRF Inference

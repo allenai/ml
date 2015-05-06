@@ -52,10 +52,10 @@ public class ForwardBackwards<S> {
         private final List<S> viterbi = computeViterbi();
 
         @Getter(value = AccessLevel.PRIVATE, lazy = true)
-        private final double[][] alpahs = computeAlphas(SloppyMath::logSumExp);
+        private final double[][] alphas = computeAlphas(SloppyMath::logSumExp);
 
         public double getLogZ() {
-            return getAlpahs()[seqLen-1][stateSpace.stopStateIndex()];
+            return getAlphas()[seqLen-1][stateSpace.stopStateIndex()];
         }
 
         private double[][] computeAlphas(ToDoubleFunction<double[]> combiner) {

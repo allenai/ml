@@ -1,5 +1,6 @@
 package com.allenai.ml.sequences;
 
+import com.gs.collections.api.tuple.Pair;
 import com.gs.collections.impl.factory.Lists;
 import com.gs.collections.impl.factory.Sets;
 import org.testng.annotations.Test;
@@ -10,6 +11,7 @@ import static com.gs.collections.impl.tuple.Tuples.pair;
 import static org.testng.Assert.*;
 
 @Test
+@SuppressWarnings(value = "unchecked")
 public class ForwardBackwardsTest {
 
     // toy NP segmentation problem
@@ -21,7 +23,7 @@ public class ForwardBackwardsTest {
 
     StateSpace<String> segmentationStateSpace = new StateSpace<>(
             Lists.mutable.of(START, STOP, BEGIN, MIDDLE, OUTSIDE),
-            Sets.mutable.of(pair(START, BEGIN),
+            Sets.mutable.with(pair(START, BEGIN),
                     pair(START, OUTSIDE),
                     pair(BEGIN, MIDDLE),
                     pair(BEGIN, OUTSIDE),
