@@ -1,0 +1,37 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'jacoco'
+
+repositories {
+  mavenCentral()
+  jcenter()
+}
+
+test {
+  useTestNG()
+}
+
+configurations {
+  markdownDoclet
+}
+
+dependencies {
+  compile 'org.slf4j:slf4j-api:1.7.7'
+  compile 'org.projectlombok:lombok:1.14.8'
+  compile 'com.goldmansachs:gs-collections:6.1.0'
+
+  // TestNG for testing
+  testCompile 'org.testng:testng:6.8.1'
+
+  // Benchmarking
+  testCompile 'org.openjdk.jmh:jmh-core:0.9'
+  testCompile 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
+
+   // To use Markdown instead of Javadoc HTML
+  markdownDoclet 'ch.raffael.pegdown-doclet:pegdown-doclet:1.1.1'
+}
+
+javadoc.options {
+  docletpath = configurations.markdownDoclet.files.asType(List)
+  doclet = "ch.raffael.doclets.pegdown.PegdownDoclet"
+}
