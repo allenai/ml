@@ -18,7 +18,19 @@ You can use Markdown in your Javadoc using [Pegdown](https://github.com/sirthias
 
 ### Test Coverage
 
-You can run `gradle jacoco` and this will produce a testing report
+You can run `gradle jacoco` and this will produce a testing report.
+
+```bash
+> gradle jacoco
+> open build/reports/jacoco/test/html/index.html
+```
+
+### Benchmark Tests
+
+```bash
+> gradle jmh
+> open build/reports/jmh/results.txt
+```
 
 ### Lombok
 
@@ -33,4 +45,3 @@ Lombok has a lot of useful annotations that give you some of the nice things in 
 ### Efficient Primitive Collections
 
 Using [GSCollections](https://github.com/goldmansachs/gs-collections) which has been found as efficient as the best libraries across a wide-range of tasks (in particular way faster than [trove](http://trove.starlight-systems.com)).
-

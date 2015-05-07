@@ -12,7 +12,7 @@ import static org.testng.Assert.*;
 
 @Test
 public class StateSpaceTest {
-    @Test
+
     public void testBuildFromSequences() throws Exception {
         String START = "<s>";
         String STOP = "</s>";
