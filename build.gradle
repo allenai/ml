@@ -28,7 +28,7 @@ dependencies {
     // TestNG for testing
     testCompile 'org.testng:testng:6.8.1'
 
-    // Benchmarking
+    // Benchmarking - dependencies don't go into production jars
     jmh 'commons-io:commons-io:2.4'
 
     // To use Markdown instead of Javadoc HTML
