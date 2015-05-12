@@ -34,6 +34,7 @@ public class ForwardBackwards<S> {
         return new Result(logPotentials);
     }
 
+
     /**
      * A class that lazily computes various quantities associated with the ForwardBackwards algorithms. You only
      * pay for the things you actually consume (e.g. if you only need the viterbi decoding, you don't do the backward
@@ -54,6 +55,15 @@ public class ForwardBackwards<S> {
         @Getter(value = AccessLevel.PRIVATE, lazy = true)
         private final double[][] alphas = computeAlphas(SloppyMath::logSumExp);
 
+        @Getter(value = AccessLevel.PRIVATE, lazy = true)
+        private final double[][] betas = computeBetas();
+
+        @Getter(value = AccessLevel.PUBLIC, lazy = true)
+        private final double[][] nodeMarginals = computeNodeMarginals();
+
+        @Getter(value = AccessLevel.PUBLIC, lazy = true)
+        private final double[][] edgeMarginals = computeEdgeMarginals();
+
         public double getLogZ() {
             return getAlphas()[seqLen-1][stateSpace.stopStateIndex()];
         }
@@ -69,6 +79,7 @@ public class ForwardBackwards<S> {
             for (int i=1; i < seqLen; ++i) {
                 int prevPos = i-1;
                 for (int s=0; s < numStates; ++s) {
+                    // potential bottleneck
                     double[] forwardPaths = stateSpace.transitionsTo(s)
                         .stream()
                         .mapToDouble(t -> alphas[prevPos][t.fromState] + potentials[prevPos][t.selfIndex])
@@ -77,6 +88,30 @@ public class ForwardBackwards<S> {
                 }
             }
             return alphas;
+        }
+
+        private double[][] computeBetas() {
+            double[][] betas = new double[seqLen][numStates];
+            for (double[] row: betas) {
+                Arrays.fill(row, Double.NEGATIVE_INFINITY);
+            }
+            // initialize
+            betas[seqLen-1][stateSpace.stopStateIndex()] = 0.0;
+            // go forwards
+            for (int i=seqLen-2; i >= 0; --i) {
+                // create new effectively final variable for lambda use
+                int curPos = i;
+                int nextPos = i+1;
+                for (int s=0; s < numStates; ++s) {
+                    // potential bottleneck
+                    double[] backwardsPath = stateSpace.transitionsFrom(s)
+                        .stream()
+                        .mapToDouble(t -> betas[nextPos][t.toState] + potentials[curPos][t.selfIndex])
+                        .toArray();
+                    betas[i][s] = SloppyMath.logSumExp(backwardsPath);
+                }
+            }
+            return betas;
         }
 
         private List<S> computeViterbi() {
@@ -113,6 +148,56 @@ public class ForwardBackwards<S> {
             // We've built answer backwards
             Collections.reverse(result);
             return result;
+        }
+
+        private double[][] computeNodeMarginals() {
+            double[][] alphas = getAlphas();
+            double[][] nodeMarginals = new double[seqLen][numStates];
+            double[][] edgeMarginals = getEdgeMarginals();
+            // Fist: Must Have All Mass on Start State
+            nodeMarginals[0][stateSpace.startStateIndex()] = 1.0;
+            // Last: Must Have All Mass on Stop State
+            nodeMarginals[seqLen-1][stateSpace.stopStateIndex()] = 1.0;
+            // Middle States: leverage edge marginals to compute node marginals
+            for (int i=1; i < seqLen-1; ++i) {
+                int curPos = i;
+                for (int s=0; s < numStates; ++s) {
+                    if (alphas[i][s] == Double.NEGATIVE_INFINITY) {
+                        continue;
+                    }
+                    // potential bottleneck
+                    nodeMarginals[i][s] = stateSpace.transitionsFrom(s)
+                        .stream()
+                        .mapToDouble(t -> edgeMarginals[curPos][t.selfIndex])
+                        .sum();
+                }
+            }
+            return nodeMarginals;
+        }
+
+        private double[][] computeEdgeMarginals() {
+            // will trigger alphas, betas computation if not already computed
+            double[][] alphas = getAlphas();
+            double[][] betas = getBetas();
+            double[][] edgeMarginals = new double[seqLen-1][numTransitions];
+            double logZ = getLogZ();
+            for (int i=0; i < seqLen-1; ++i) {
+                for (int s=0; s < numStates; ++s) {
+                    // skip edges which land on an impossible state
+                    if (alphas[i][s] == Double.NEGATIVE_INFINITY) {
+                        continue;
+                    }
+                    for (Transition t: stateSpace.transitionsFrom(s)) {
+                        // score for all paths that use `t` transition. Three pieces
+                        // (1) score to paths that lead to start of transition (alphas[i][s])
+                        // (2) score of transition itself
+                        // (3) score of all paths starting at t.toState
+                        double logNumer = alphas[i][s] + potentials[i][t.selfIndex] + betas[i+1][t.toState];
+                        edgeMarginals[i][t.selfIndex] = Math.exp(logNumer-logZ);
+                    }
+                }
+            }
+            return edgeMarginals;
         }
     }
 }

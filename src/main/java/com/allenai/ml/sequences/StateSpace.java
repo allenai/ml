@@ -27,7 +27,7 @@ public class StateSpace<S> {
      * @param states It's assumed that states[0] and states[1] are the start/stop states.
      * @param transitionPairs All allowed transitions, including those starting/ending from start/stop respectively
      */
-    StateSpace(List<S> states, Set<Pair<S, S>> transitionPairs) {
+    public StateSpace(List<S> states, Set<Pair<S, S>> transitionPairs) {
         Map<S, Integer> stateIndex = IntStream.range(0, states.size())
                 .boxed()
                 .collect(Collectors.toMap(states::get, Function.identity()));
@@ -58,12 +58,16 @@ public class StateSpace<S> {
         if (fromIndex < 0 || toIndex < 0) {
             return Optional.empty();
         }
-        return transitionFrom(fromIndex).stream()
+        return transitionFor(fromIndex, toIndex);
+    }
+
+    public Optional<Transition> transitionFor(int fromIndex, int toIndex) {
+        return transitionsFrom(fromIndex).stream()
             .filter(t -> t.toState == toIndex)
             .findFirst();
     }
 
-    public List<Transition> transitionFrom(int stateIndex) {
+    public List<Transition> transitionsFrom(int stateIndex) {
         return Collections.unmodifiableList(fromTransitions.getIfAbsent(stateIndex, FastList::new));
     }
 

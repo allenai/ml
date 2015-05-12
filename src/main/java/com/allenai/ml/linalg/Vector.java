@@ -5,6 +5,7 @@ import lombok.val;
 
 import java.util.Spliterator;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -164,6 +165,12 @@ public interface Vector {
         return result;
     }
 
+    default double add(long idx, double val) {
+        double newVal = at(idx) + val;
+        set(idx, newVal);
+        return newVal;
+    }
+
     default void addInPlace(double scale, Vector dir) {
         dir.nonZeroEntries().forEach((Entry e) ->
             this.inc(e.getIndex(), scale * e.getValue()));
@@ -175,6 +182,91 @@ public interface Vector {
 
     default void scaleInPlace(double v) {
         this.nonZeroEntries().forEach(e -> this.set(e.getIndex(), v * e.getValue()));
+    }
+
+    /**
+     * For use cases when you don't want to allocate `Vector.Entry` on a per-entry basis and want to re-use the iterator
+     * without object allocation. This interface allows for an implementation where there is no object allocation
+     * associated with iterating over elements or re-using.
+     * Example usage:
+     * ```java
+     * while (it.isExhausted()) {
+     *     long idx = it.index();
+     *     double val = it.value();
+     *     // do stuff with (idx, val)
+     *     it.advance();
+     * }
+     * it.reset(); // can now safely re-use
+     * ```
+     */
+    interface Iterator {
+        boolean isExhausted();
+        void reset();
+        void advance();
+        long index();
+        double value();
+    }
+
+    /**
+     * Add an iterator's entries to the receiver, returning self
+     * @param scale
+     * @param iter
+     * @return `this` for chaining
+     */
+    default Vector addInPlace(double scale, Vector.Iterator iter) {
+        while (!iter.isExhausted()) {
+            long idx = iter.index();
+            this.set(idx, this.at(idx) + scale * iter.value());
+            iter.advance();
+        }
+        return this;
+    }
+
+    default Vector addInPlace(Vector.Iterator iter) {
+        return addInPlace(1.0, iter);
+    }
+
+    /**
+     * External iterator, useful for when you don't want object allocation
+     * to access individual elements (an internal iterator would require
+     * creating a pair object for the index/value).
+     */
+    default Iterator iterator() {
+        val entries = nonZeroEntries().collect(Collectors.toList());
+        return new Iterator() {
+            int idx = 0;
+            @Override
+            public boolean isExhausted() {
+                return idx >= entries.size();
+            }
+
+            public void advance() {
+                idx += 1;
+            }
+
+            private void ensureNotExhausted(String message) {
+                if (isExhausted()) {
+                    throw new RuntimeException(message);
+                }
+            }
+
+            @Override
+            public long index() {
+                ensureNotExhausted("Iterator is exhausted");
+                return entries.get(idx).index;
+            }
+
+            @Override
+            public double value() {
+                ensureNotExhausted("Must call advance() before index()");
+                return entries.get(idx).value;
+            }
+
+            @Override
+            public void reset() {
+                idx = 0;
+            }
+        };
     }
 
     @Data(staticConstructor = "of")

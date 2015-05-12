@@ -89,9 +89,6 @@ public interface QuasiNewton {
                     throw new IllegalArgumentException("Too small a diff between successive input or gradient." +
                         "Should have already converged already");
                 }
-                if (gradDelta.l2NormSquared() < EPS) {
-                    throw new IllegalArgumentException("Can't have this small input delta: " + gradDelta.l2NormSquared());
-                }
                 this.history.add(0, Tuples.pair(xDelta, gradDelta));
                 while (this.history.size() > maxHistorySize) {
                     this.history.remove(this.history.size()-1);
