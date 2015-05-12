@@ -1,5 +1,6 @@
 package com.allenai.ml.sequences;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Value;
 
@@ -11,7 +12,7 @@ import lombok.Value;
  *  __Note__: Default access-level is intentional
  * @See StateSpace
  */
-@Data(staticConstructor = "of")
+@AllArgsConstructor
 class Transition {
     public final int fromState;
     public final int toState;

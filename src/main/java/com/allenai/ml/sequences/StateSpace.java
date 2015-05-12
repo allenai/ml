@@ -37,7 +37,7 @@ public class StateSpace<S> {
             int startIndex = stateIndex.get(transitionPair.getOne());
             int stopIndex = stateIndex.get(transitionPair.getTwo());
             int transitionIndex = transitions.size();
-            transitions.add(Transition.of(startIndex, stopIndex, transitionIndex));
+            transitions.add(new Transition(startIndex, stopIndex, transitionIndex));
         }
         this.fromTransitions = new IntObjectHashMap<>(this.states.size());
         this.toTransitions = new IntObjectHashMap<>(this.states.size());
