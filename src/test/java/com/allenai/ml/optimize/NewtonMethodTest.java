@@ -21,6 +21,11 @@ public class NewtonMethodTest {
         testMinimizer(new NewtonMethod(__ -> QuasiNewton.lbfgs(3)));
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testZeroDiffLBFGS() throws Exception {
+        QuasiNewton.lbfgs(1).update(DenseVector.of(10), DenseVector.of(10));
+    }
+
     public void testMinimizer(GradientFnMinimizer minimizer) {
         testExample(minimizer, TestUtils.quartic);
         testExample(minimizer, TestUtils.xSquared);

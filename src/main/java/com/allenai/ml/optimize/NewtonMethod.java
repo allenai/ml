@@ -60,7 +60,7 @@ public class NewtonMethod implements GradientFnMinimizer {
         for (int i=0; i < opts.maxIters; ++i) {
             // iteration
             val curRes = gradFn.apply(x);
-            val xnew = step(gradFn, x, lm, qn);
+            Vector xnew = step(gradFn, x, lm, qn);
             val newRes = gradFn.apply(xnew);
             if (newRes.fx > curRes.fx) {
                 throw new IllegalStateException("Step increased function value");

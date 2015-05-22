@@ -29,11 +29,11 @@ public class StateSpaceTest {
         assertEquals(stateSpace.stopState(), STOP);
         assertEquals(new HashSet<>(stateSpace.states()), new HashSet<>(Lists.fixedSize.of(START, STOP, S1, S2, S3)));
         // Test Transitions
-        Set<String> fromStartStates = stateSpace.transitionFrom(stateSpace.stateIndex(START)).stream()
+        Set<String> fromStartStates = stateSpace.transitionsFrom(stateSpace.stateIndex(START)).stream()
                 .map(t -> stateSpace.transition(t.selfIndex).getTwo())
                 .collect(Collectors.toSet());
         assertEquals(fromStartStates, Sets.immutable.of(S1));
-        Set<String> s1Transitions = stateSpace.transitionFrom(stateSpace.stateIndex(S1))
+        Set<String> s1Transitions = stateSpace.transitionsFrom(stateSpace.stateIndex(S1))
                 .stream()
                 .map(t -> stateSpace.transition(t.selfIndex).getTwo())
                 .collect(Collectors.toSet());

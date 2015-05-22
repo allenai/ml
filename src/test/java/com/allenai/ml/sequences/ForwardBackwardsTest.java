@@ -6,6 +6,7 @@ import com.gs.collections.impl.factory.Sets;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static com.gs.collections.impl.tuple.Tuples.pair;
 import static org.testng.Assert.*;
@@ -24,16 +25,16 @@ public class ForwardBackwardsTest {
     StateSpace<String> segmentationStateSpace = new StateSpace<>(
             Lists.mutable.of(START, STOP, BEGIN, MIDDLE, OUTSIDE),
             Sets.mutable.with(pair(START, BEGIN),
-                    pair(START, OUTSIDE),
-                    pair(BEGIN, MIDDLE),
-                    pair(BEGIN, OUTSIDE),
-                    pair(MIDDLE, MIDDLE),
-                    pair(MIDDLE, BEGIN),
-                    pair(MIDDLE, OUTSIDE),
-                    pair(MIDDLE, STOP),
-                    pair(OUTSIDE, OUTSIDE),
-                    pair(OUTSIDE, BEGIN),
-                    pair(OUTSIDE, STOP)));
+                pair(START, OUTSIDE),
+                pair(BEGIN, MIDDLE),
+                pair(BEGIN, OUTSIDE),
+                pair(MIDDLE, MIDDLE),
+                pair(MIDDLE, BEGIN),
+                pair(MIDDLE, OUTSIDE),
+                pair(MIDDLE, STOP),
+                pair(OUTSIDE, OUTSIDE),
+                pair(OUTSIDE, BEGIN),
+                pair(OUTSIDE, STOP)));
 
     public void testSegmentation() throws Exception {
         // Example sentence
@@ -58,7 +59,30 @@ public class ForwardBackwardsTest {
         potentials[5][middleToStopIdx] = 0.0;
         ForwardBackwards<String> fb = new ForwardBackwards<>(segmentationStateSpace);
         ForwardBackwards<String>.Result result = fb.compute(potentials);
+
+        // Test Viterbi and LogZ
         assertEquals(result.getViterbi(), Arrays.asList(BEGIN, MIDDLE, OUTSIDE, BEGIN, MIDDLE));
         assertEquals(result.getLogZ(), 0.0);
+
+        // Test Marginals
+        double[][] edgeMarginals = result.getEdgeMarginals();
+        int[] expectedEdgeMarginalSpikes = new int[]{
+            startToBeginIdx,
+            beginToMiddleIdx,
+            middleToOutsideIdx,
+            outsideToBeginIdx,
+            beginToMiddleIdx,
+            middleToStopIdx
+        };
+        for (int idx=0; idx < expectedEdgeMarginalSpikes.length; ++idx) {
+            assertEquals(edgeMarginals[idx][expectedEdgeMarginalSpikes[idx]], 1.0, 1.0e-4);
+        }
+        double[][] nodeMarginals = result.getNodeMarginals();
+        int[] expectedNodeMarginalSpikes = Stream.of(START, BEGIN, MIDDLE, OUTSIDE, BEGIN, MIDDLE, STOP)
+            .mapToInt(s -> segmentationStateSpace.stateIndex(s))
+            .toArray();
+        for (int idx=0; idx < expectedNodeMarginalSpikes.length; ++idx) {
+            assertEquals(nodeMarginals[idx][expectedNodeMarginalSpikes[idx]], 1.0, 1.0e-4);
+        }
     }
 }
