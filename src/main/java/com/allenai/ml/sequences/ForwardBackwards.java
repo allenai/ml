@@ -114,6 +114,7 @@ public class ForwardBackwards<S> {
             return betas;
         }
 
+
         private List<S> computeViterbi() {
             // Use the MAX operation to compute alphas
             double[][] maxAlphas = computeAlphas(xs -> DoubleStream.of(xs).max().orElse(Double.NEGATIVE_INFINITY));
@@ -160,16 +161,14 @@ public class ForwardBackwards<S> {
             nodeMarginals[seqLen-1][stateSpace.stopStateIndex()] = 1.0;
             // Middle States: leverage edge marginals to compute node marginals
             for (int i=1; i < seqLen-1; ++i) {
-                int curPos = i;
                 for (int s=0; s < numStates; ++s) {
                     if (alphas[i][s] == Double.NEGATIVE_INFINITY) {
                         continue;
                     }
                     // potential bottleneck
-                    nodeMarginals[i][s] = stateSpace.transitionsFrom(s)
-                        .stream()
-                        .mapToDouble(t -> edgeMarginals[curPos][t.selfIndex])
-                        .sum();
+                    for (Transition t : stateSpace.transitionsFrom(s)) {
+                        nodeMarginals[i][s] += edgeMarginals[i][t.selfIndex];
+                    }
                 }
             }
             return nodeMarginals;
@@ -192,8 +191,12 @@ public class ForwardBackwards<S> {
                         // (1) score to paths that lead to start of transition (alphas[i][s])
                         // (2) score of transition itself
                         // (3) score of all paths starting at t.toState
+                        if (potentials[i][t.selfIndex] == Double.NEGATIVE_INFINITY ||
+                            betas[i+1][t.toState] == Double.NEGATIVE_INFINITY) {
+                            continue;
+                        }
                         double logNumer = alphas[i][s] + potentials[i][t.selfIndex] + betas[i+1][t.toState];
-                        edgeMarginals[i][t.selfIndex] = Math.exp(logNumer-logZ);
+                        edgeMarginals[i][t.selfIndex] = SloppyMath.sloppyExp(logNumer - logZ);
                     }
                 }
             }

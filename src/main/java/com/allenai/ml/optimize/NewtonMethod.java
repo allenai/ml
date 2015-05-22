@@ -7,6 +7,7 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -22,12 +23,12 @@ public class NewtonMethod implements GradientFnMinimizer {
     private final Opts opts;
 
     public static class Opts {
-        int maxIters = 150;
-        double tolerance = 1.0e-10;
-        double alpha = 0.5;
-        double beta = 0.01;
-        double stepLenTolerance = 1.0e-10;
-
+        public int maxIters = 150;
+        public double tolerance = 1.0e-10;
+        public double alpha = 0.5;
+        public double beta = 0.01;
+        public double stepLenTolerance = 1.0e-10;
+        public Consumer<Vector> iterCallback;
         public LineMinimizer lineMinimizer() {
             return BacktrackingLineMinimizer.of(alpha, beta, stepLenTolerance);
         }
@@ -57,23 +58,30 @@ public class NewtonMethod implements GradientFnMinimizer {
         QuasiNewton qn = this.quasiNewtonFn.apply(gradFn);
         val lm = this.opts.lineMinimizer();
         Vector x = initGuess;
+        log.info("Optimization started with {} parameters", initGuess.dimension());
         for (int i=0; i < opts.maxIters; ++i) {
             // iteration
+            long start = System.currentTimeMillis();
             val curRes = gradFn.apply(x);
             Vector xnew = step(gradFn, x, lm, qn);
             val newRes = gradFn.apply(xnew);
             if (newRes.fx > curRes.fx) {
-                throw new IllegalStateException("Step increased function value");
+                throw new IllegalStateException(
+                    String.format("Step increased function value: old %.3f new: %.3f", curRes.fx, newRes.fx));
             }
             double larger = Math.min(Math.abs(curRes.fx), Math.abs(newRes.fx));
             double relDiff = Math.abs(newRes.fx-curRes.fx)/ Math.max(larger, EPS);
-            log.info("[Iteration {}] Ended with value {} and relDiff {}\n", i, newRes.fx, relDiff);
+            long stop = System.currentTimeMillis();
+            log.info("[Iteration {}][{} ms] Ended with value {} and relDiff {}", i, (stop-start), newRes.fx, relDiff);
             if (relDiff < opts.tolerance) {
                 break;
             }
             // update
             qn.update(xnew.add(-1.0,x), newRes.grad.add(-1.0, curRes.grad));
             x = xnew;
+            if (opts.iterCallback != null) {
+                opts.iterCallback.accept(x);
+            }
         }
         return Result.of(gradFn.apply(x).fx, x);
     }

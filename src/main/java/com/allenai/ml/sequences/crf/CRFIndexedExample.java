@@ -62,16 +62,18 @@ public class CRFIndexedExample {
                                       int startOffset) {
         val offsets = new IntArrayList(predicateVectors.size());
         int totalOffset = startOffset;
+        // bottleneck: Low-level intentional here
         for (int idx = 0; idx < predicateVectors.size(); idx++) {
             offsets.add(totalOffset);
-            List<Vector.Entry> entries = predicateVectors.get(idx)
-                .nonZeroEntries()
-                .collect(Collectors.toList());
-            entries.forEach(e -> {
-                predIndices.addAll((int) e.getIndex());
-                predVals.addAll(e.getValue());
-            });
-            totalOffset += entries.size();
+            val it = predicateVectors.get(idx).iterator();
+            while (!it.isExhausted()) {
+                if (it.value() != 0.0) {
+                    predIndices.add((int)it.index());
+                    predVals.add(it.value());
+                    it.advance();
+                    totalOffset ++;
+                }
+            }
         }
         return offsets;
     }
@@ -124,12 +126,18 @@ public class CRFIndexedExample {
     }
 
     public Vector.Iterator getNodePredicateValues(int idx) {
+        if (idx >= getSequenceLength()) {
+            throw new IllegalArgumentException("Invalid node predicate index");
+        }
         int start = offsets.get(idx);
         int stop = offsets.get(idx + 1);
         return new Iterator(start, stop);
     }
 
     public Vector.Iterator getEdgePredicateValues(int idx) {
+        if (idx >= getSequenceLength()-1) {
+            throw new IllegalArgumentException("Invalid node transition edge index");
+        }
         // edge offsets after node ones
         int start = offsets.get(getSequenceLength() + idx);
         int stopIdx = getSequenceLength() + idx + 1;

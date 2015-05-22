@@ -34,7 +34,8 @@ public class BatchObjectiveFnTest {
             double guess = example.featVec.dotProduct(weights);
             double diff = guess - example.target;
             grad.addInPlace(diff, example.featVec);
-            return 0.5 * diff * diff;
+            grad.scaleInPlace(-1.0);
+            return -0.5 * diff * diff;
         };
         GradientFn objFn = new BatchObjectiveFn<>(examples, regressionObjective, 2, 2);
         val res = objFn.apply(DenseVector.of(2));

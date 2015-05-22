@@ -11,7 +11,7 @@ import lombok.Value;
  *
  * @See StateSpace
  */
-@AllArgsConstructor
+@Value
 public class Transition {
     public final int fromState;
     public final int toState;

@@ -61,4 +61,34 @@ public class DenseVector implements Vector {
     public Vector copy() {
         return new DenseVector(Arrays.copyOf(elems, elems.length));
     }
+
+    public Vector.Iterator iterator() {
+        return new Iterator() {
+            int offset = 0;
+            @Override
+            public boolean isExhausted() {
+                return offset >= elems.length;
+            }
+
+            @Override
+            public void reset() {
+                offset = 0;
+            }
+
+            @Override
+            public void advance() {
+                offset++;
+            }
+
+            @Override
+            public long index() {
+                return offset;
+            }
+
+            @Override
+            public double value() {
+                return elems[offset];
+            }
+        };
+    }
 }

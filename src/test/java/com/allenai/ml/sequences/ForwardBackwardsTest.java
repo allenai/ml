@@ -24,7 +24,7 @@ public class ForwardBackwardsTest {
 
     StateSpace<String> segmentationStateSpace = new StateSpace<>(
             Lists.mutable.of(START, STOP, BEGIN, MIDDLE, OUTSIDE),
-            Sets.mutable.with(pair(START, BEGIN),
+            Lists.mutable.with(pair(START, BEGIN),
                 pair(START, OUTSIDE),
                 pair(BEGIN, MIDDLE),
                 pair(BEGIN, OUTSIDE),

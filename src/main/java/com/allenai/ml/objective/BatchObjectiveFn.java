@@ -3,6 +3,8 @@ package com.allenai.ml.objective;
 import com.allenai.ml.linalg.DenseVector;
 import com.allenai.ml.linalg.Vector;
 import com.allenai.ml.optimize.GradientFn;
+import com.allenai.ml.util.Functional;
+import com.allenai.ml.util.Parallel;
 import lombok.SneakyThrows;
 
 import java.util.ArrayList;
@@ -21,60 +23,46 @@ public class BatchObjectiveFn<T> implements GradientFn {
     private final List<T> data;
     private final long dimension;
     private final ExampleObjectiveFn<T> exampleObjectiveFn;
-    private final int numThreads = Runtime.getRuntime().availableProcessors();
-    private final ExecutorService executorService;
-
-    private class Worker implements Runnable {
-        List<T> subList;
-        double objectiveValue = 0.0;
-        Vector objectiveGradient = DenseVector.of(dimension);
-        Vector weights ;
-
-        Worker(List<T> subList, Vector weights) {
-            this.subList = subList;
-            this.weights = weights;
-        }
-
-        @Override
-        public void run() {
-            for (T t : subList) {
-                objectiveValue += exampleObjectiveFn.evaluate(t, weights, objectiveGradient);
-            }
-        }
-    }
+    private final int numThreads;
 
     public BatchObjectiveFn(List<T> data, ExampleObjectiveFn<T> exampleObjectiveFn, long dimension, int numThreads) {
         // copy to a GS collection
         this.data = new ArrayList<>(data);
         this.exampleObjectiveFn = exampleObjectiveFn;
         this.dimension = dimension;
-        this.executorService = Executors.newFixedThreadPool(numThreads);
+        this.numThreads = numThreads;
     }
 
+
     @Override
-    @SneakyThrows({InterruptedException.class, ExecutionException.class})
-    public Result apply(Vector weights) {
+    public Result apply(Vector weightsOriginal) {
         // defensive copy so all workers can read this instance
-        weights = weights.copy();
-        List<Worker> workers = new ArrayList<>();
-        int chunkSize = data.size() / numThreads;
-        for (int idx = 0; idx < numThreads; idx++) {
-            int start = idx * chunkSize;
-            int stop = idx + 1 < numThreads ? (idx+1) * chunkSize : data.size();
-            workers.add(new Worker(data.subList(start, stop), weights));
+        final Vector weights = weightsOriginal.copy();
+        class ObjectiveStats {
+            double value;
+            Vector gradient = DenseVector.of(weights.dimension());
         }
-        List<Future<?>> futureStream = workers.stream()
-            .map(executorService::submit)
-            .collect(Collectors.toList());
-        for (Future<?> f : futureStream) {
-            f.get();
-        }
-        double objectiveValue = workers.stream().mapToDouble(w -> w.objectiveValue).sum();
-        Vector objectiveGradient = DenseVector.of(dimension);
-        workers.stream()
-            .map(w -> w.objectiveGradient)
-            .forEach(g -> objectiveGradient.addInPlace(1.0, g));
-        return Result.of(objectiveValue, objectiveGradient);
+        Parallel.MapReduceDriver<T, ObjectiveStats> driver = new Parallel.MapReduceDriver<T, ObjectiveStats>() {
+            @Override
+            public ObjectiveStats newData() {
+                return new ObjectiveStats();
+            }
+
+            @Override
+            public void update(ObjectiveStats data, T elem) {
+                data.value += exampleObjectiveFn.evaluate(elem, weights, data.gradient);
+            }
+
+            @Override
+            public void merge(ObjectiveStats a, ObjectiveStats b) {
+                a.value += b.value;
+                a.gradient.addInPlace(1.0, b.gradient);
+            }
+        };
+        // The optimization code is in terms of 'minimizing' so we want to
+        // return the negative objective value and gradient
+        ObjectiveStats stats = Parallel.mapReduce(data, driver, numThreads);
+        return Result.of(-stats.value, stats.gradient.scale(-1.0));
     }
 
     @Override

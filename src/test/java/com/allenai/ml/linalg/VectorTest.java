@@ -24,6 +24,7 @@ public class VectorTest {
         assertEquals(vectorEntries, copyEntries);
         assertEquals(v.dotProduct(copy), v.l2NormSquared(), 1.0e-10);
         assertTrue(v.scale(2.0).l2Distance(v.add(v)) < 1.0e-10);
+        assertTrue(v.map((idx, x) -> 2.0 * x).closeTo(v.scale(2.0)));
 
         val firstEntry = copyEntries.get(0);
         copy.inc(firstEntry.getIndex(), 10.0);
