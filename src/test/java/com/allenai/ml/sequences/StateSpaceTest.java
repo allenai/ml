@@ -2,16 +2,36 @@ package com.allenai.ml.sequences;
 
 import com.gs.collections.impl.factory.Lists;
 import com.gs.collections.impl.factory.Sets;
+import lombok.val;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.testng.Assert.*;
 
 @Test
 public class StateSpaceTest {
+
+    public void testBuildFromAllPairs() throws Exception {
+        Set<String> states = Stream.of("a", "b", "c")
+            .collect(Collectors.toSet());
+
+        val ss = StateSpace.buildFullStateSpace(states, "<s>", "</s>");
+        assertEquals( ss.states().size(), 5);
+        // 3*3 = all internal state transitions
+        // 3 = three start transitions
+        // 3 = three stop transitions
+        // 1 = start -> stop
+        assertEquals( ss.transitions().size(), 3*3 + 3 + 3 + 1);
+    }
 
     public void testBuildFromSequences() throws Exception {
         String START = "<s>";
@@ -43,5 +63,17 @@ public class StateSpaceTest {
                 .map(t -> stateSpace.transition(t.selfIndex).getOne())
                 .collect(Collectors.toSet());
         assertEquals(toStopTransitions, Sets.mutable.of(S2, S3));
+    }
+
+
+    public void testSaveLoadRoundtrip() throws Exception {
+        Set<String> states = Stream.of("a", "b", "c").collect(Collectors.toSet());
+        val ss = StateSpace.buildFullStateSpace(states, "<s>", "</s>");
+        val out = new ByteArrayOutputStream(3200);
+        val dos = new DataOutputStream(out);
+        ss.save(dos);
+        val otherSS = StateSpace.load(new DataInputStream(new ByteArrayInputStream(out.toByteArray())));
+        assertEquals(ss.states(), otherSS.states());
+        assertEquals(ss.transitions(), otherSS.transitions());
     }
 }

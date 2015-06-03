@@ -1,13 +1,17 @@
 package com.allenai.ml.linalg;
 
+import com.allenai.ml.util.Indexer;
 import com.gs.collections.api.LazyLongIterable;
+import com.gs.collections.api.RichIterable;
 import com.gs.collections.api.iterator.LongIterator;
 import com.gs.collections.api.map.primitive.LongDoubleMap;
 import com.gs.collections.api.map.primitive.MutableLongDoubleMap;
+import com.gs.collections.api.map.primitive.ObjectDoubleMap;
 import com.gs.collections.api.tuple.primitive.LongDoublePair;
 import com.gs.collections.impl.map.mutable.primitive.LongDoubleHashMap;
 import lombok.val;
 
+import java.util.Iterator;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -76,6 +80,38 @@ public class SparseVector implements Vector {
     }
 
     @Override
+    public Iterator iterator() {
+        long[] indices = vec.keysView().toArray();
+        return new Iterator() {
+            int offset = 0;
+
+            public boolean isExhausted() {
+                return offset >= indices.length;
+            }
+
+            @Override
+            public void reset() {
+                offset = 0;
+            }
+
+            @Override
+            public void advance() {
+                offset ++;
+            }
+
+            @Override
+            public long index() {
+                return indices[offset];
+            }
+
+            @Override
+            public double value() {
+                return at(indices[offset]);
+            }
+        };
+    }
+
+    @Override
     public double dotProduct(Vector other) {
       if (other.numStoredEntries() < this.numStoredEntries()) {
           return other.dotProduct(this);
@@ -89,5 +125,18 @@ public class SparseVector implements Vector {
           result += val * other.at(idx);
       }
       return result;
+    }
+
+    public static <T> SparseVector indexed(ObjectDoubleMap<T> map, Indexer<T> indexer) {
+        val ldm = new LongDoubleHashMap(map.size());
+        map.forEachKeyValue((k, v) -> {
+            int idx = indexer.indexOf(k);
+            if (idx >= 0) {
+                ldm.put(idx, v);
+            }
+        });
+        // since we made this map, no concern over someone
+        // else mutating, can use direct ctor
+        return new SparseVector(ldm, indexer.size());
     }
 }

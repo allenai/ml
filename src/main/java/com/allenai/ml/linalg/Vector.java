@@ -1,5 +1,7 @@
 package com.allenai.ml.linalg;
 
+import com.allenai.ml.util.Indexer;
+import com.gs.collections.api.map.primitive.ObjectDoubleMap;
 import lombok.Data;
 import lombok.val;
 
@@ -42,6 +44,36 @@ public interface Vector {
      * @return a copy of the vector you can freely mutate
      */
     Vector copy();
+
+    /**
+     * For use cases when you don't want to allocate `Vector.Entry` on a per-entry basis and want to re-use the iterator
+     * without object allocation. This interface allows for an implementation where there is no object allocation
+     * associated with iterating over elements or re-using.
+     * Example usage:
+     * ```java
+     * while (it.isExhausted()) {
+     *     long idx = it.index();
+     *     double val = it.value();
+     *     // do stuff with (idx, val)
+     *     it.advance();
+     * }
+     * it.reset(); // can now safely re-use
+     * ```
+     */
+    interface Iterator {
+        boolean isExhausted();
+        void reset();
+        void advance();
+        long index();
+        double value();
+    }
+
+    /**
+     * External iterator, useful for when you don't want object allocation
+     * to access individual elements (an internal iterator would require
+     * creating a pair object for the index/value).
+     */
+    Iterator iterator();
 
     /**
      * @param dimensionIndices
@@ -165,15 +197,12 @@ public interface Vector {
         return result;
     }
 
-    default double add(long idx, double val) {
-        double newVal = at(idx) + val;
-        set(idx, newVal);
-        return newVal;
-    }
-
     default void addInPlace(double scale, Vector dir) {
-        dir.nonZeroEntries().forEach((Entry e) ->
-            this.inc(e.getIndex(), scale * e.getValue()));
+        Vector.Iterator it = dir.iterator();
+        while (!it.isExhausted()) {
+            inc(it.index(), scale * it.value());
+            it.advance();
+        }
     }
 
     default Vector add(Vector dir) {
@@ -184,27 +213,13 @@ public interface Vector {
         this.nonZeroEntries().forEach(e -> this.set(e.getIndex(), v * e.getValue()));
     }
 
-    /**
-     * For use cases when you don't want to allocate `Vector.Entry` on a per-entry basis and want to re-use the iterator
-     * without object allocation. This interface allows for an implementation where there is no object allocation
-     * associated with iterating over elements or re-using.
-     * Example usage:
-     * ```java
-     * while (it.isExhausted()) {
-     *     long idx = it.index();
-     *     double val = it.value();
-     *     // do stuff with (idx, val)
-     *     it.advance();
-     * }
-     * it.reset(); // can now safely re-use
-     * ```
-     */
-    interface Iterator {
-        boolean isExhausted();
-        void reset();
-        void advance();
-        long index();
-        double value();
+    default double[] toDoubles() {
+        int dim = (int) dimension();
+        double[] xs = new double[dim];
+        for (int idx = 0; idx < dim; idx++) {
+            xs[idx] = at(idx);
+        }
+        return xs;
     }
 
     /**
@@ -226,48 +241,6 @@ public interface Vector {
         return addInPlace(1.0, iter);
     }
 
-    /**
-     * External iterator, useful for when you don't want object allocation
-     * to access individual elements (an internal iterator would require
-     * creating a pair object for the index/value).
-     */
-    default Iterator iterator() {
-        val entries = nonZeroEntries().collect(Collectors.toList());
-        return new Iterator() {
-            int idx = 0;
-            @Override
-            public boolean isExhausted() {
-                return idx >= entries.size();
-            }
-
-            public void advance() {
-                idx += 1;
-            }
-
-            private void ensureNotExhausted(String message) {
-                if (isExhausted()) {
-                    throw new RuntimeException(message);
-                }
-            }
-
-            @Override
-            public long index() {
-                ensureNotExhausted("Iterator is exhausted");
-                return entries.get(idx).index;
-            }
-
-            @Override
-            public double value() {
-                ensureNotExhausted("Must call advance() before index()");
-                return entries.get(idx).value;
-            }
-
-            @Override
-            public void reset() {
-                idx = 0;
-            }
-        };
-    }
 
     @Data(staticConstructor = "of")
     final class Entry implements Comparable<Entry> {

@@ -15,12 +15,33 @@ public interface GradientFn extends Function<Vector, GradientFn.Result> {
     class Result {
         public final double fx;
         public final Vector grad;
+        public Result merge(Result other) {
+            return new Result(this.fx + other.fx, this.grad.add(other.grad));
+        }
     }
 
     @Override
     Result apply(Vector vec);
 
     long dimension();
+
+    default GradientFn add(GradientFn other) {
+        if (this.dimension() != other.dimension()) {
+            throw new IllegalArgumentException("Dimensions don't agree");
+        }
+        GradientFn parent = this;
+        return new GradientFn() {
+            @Override
+            public Result apply(Vector vec) {
+                return parent.apply(vec).merge(other.apply(vec));
+            }
+
+            @Override
+            public long dimension() {
+                return other.dimension();
+            }
+        };
+    }
 
     static GradientFn from(long dimension, Function<Vector, Result> fn) {
         return new GradientFn() {

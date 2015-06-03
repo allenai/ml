@@ -84,4 +84,5 @@ public class CRFWeightsEncoder<S> {
     public int edgeWeightIndex(int predIdx, int transitionIdx) {
         return numNodePredicates + predIdx * stateSpace.transitions().size() + transitionIdx;
     }
+
 }

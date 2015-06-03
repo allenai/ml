@@ -1,13 +1,19 @@
 package com.allenai.ml.sequences;
 
+import com.allenai.ml.util.IOUtils;
+
 import com.gs.collections.api.list.MutableList;
 import com.gs.collections.api.map.primitive.MutableIntObjectMap;
 import com.gs.collections.api.tuple.Pair;
 import com.gs.collections.impl.list.mutable.FastList;
 import com.gs.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import com.gs.collections.impl.tuple.Tuples;
+import lombok.SneakyThrows;
 import lombok.val;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -24,10 +30,17 @@ public class StateSpace<S> {
 
     /**
      * Package private constructor.
-     * @param states It's assumed that states[0] and states[1] are the start/stop states.
-     * @param transitionPairs All allowed transitions, including those starting/ending from start/stop respectively
+     * @param states It's assumed that states[0] and states[1] are the start/stop states and no duplicates.
+     * @param transitionPairs All allowed transitions, including those starting/ending from start/stop respectively.
+     *                        Assumes no duplicates.
      */
-    public StateSpace(List<S> states, Set<Pair<S, S>> transitionPairs) {
+    public StateSpace(List<S> states, List<Pair<S, S>> transitionPairs) {
+        if (states.size() != new HashSet<>(states).size()) {
+            throw new IllegalArgumentException("Passed in duplicate states");
+        }
+        if (transitionPairs.size() != new HashSet<>(transitionPairs).size()) {
+            throw new IllegalArgumentException("Passed in transition pairs");
+        }
         Map<S, Integer> stateIndex = IntStream.range(0, states.size())
                 .boxed()
                 .collect(Collectors.toMap(states::get, Function.identity()));
@@ -133,6 +146,26 @@ public class StateSpace<S> {
         return pairs;
     }
 
+    public static <S> StateSpace<S> buildFullStateSpace(Set<S> stateSet, S startState, S stopState) {
+        List<S> states = new ArrayList<>();
+        states.add(startState);
+        states.add(stopState);
+        stateSet = new HashSet<>(stateSet);
+        stateSet.remove(startState);
+        stateSet.remove(stopState);
+        states.addAll(stateSet);
+
+        List<Pair<S, S>> pairs = new ArrayList<>(states.size() * states.size());
+        for (S s: states) {
+            for (S t: states) {
+                if (s != stopState && t != startState) {
+                    pairs.add(Tuples.pair(s, t));
+                }
+            }
+        }
+        return new StateSpace<>(states, pairs);
+    }
+
     public static <S> StateSpace<S> buildFromSequences(Collection<List<S>> sequences, S startState, S stopState) {
         List<S> states = new ArrayList<>();
         states.addAll(Arrays.asList(startState, stopState));
@@ -141,10 +174,37 @@ public class StateSpace<S> {
                 .filter(s -> !s.equals(startState) && !s.equals(stopState))
                 .collect(Collectors.toSet());
         states.addAll(nonStartStopStates);
-        Set<Pair<S, S>> transitionPairs = sequences.stream()
+        List<Pair<S, S>> transitionPairs = sequences.stream()
                 .map(seq -> ensureStartStopPadded(seq, startState, stopState))
                 .flatMap(seq -> transitions(seq).stream())
-                .collect(Collectors.toSet());
+                .distinct()
+                .collect(Collectors.toList());
         return new StateSpace<>(states, transitionPairs);
+    }
+
+    private final static String DATA_VERSION = "1.0";
+
+    @SneakyThrows
+    public static StateSpace<String> load(DataInputStream dis) {
+        IOUtils.ensureVersionMatch(dis, DATA_VERSION);
+        List<String> states = IOUtils.loadList(dis);
+        int numTransitions = dis.readInt();
+        List<Pair<String, String>> transitions = new ArrayList<>();
+        for (int idx = 0; idx < numTransitions; idx++) {
+            int from = dis.readInt();
+            int to = dis.readInt();
+            transitions.add(Tuples.pair(states.get(from), states.get(to)));
+        }
+        return new StateSpace<>(states, transitions);
+    }
+
+    public void save(DataOutputStream dos) throws IOException {
+        dos.writeUTF(DATA_VERSION);
+        IOUtils.saveList(dos, states.stream().map(Object::toString).collect(Collectors.toList()));
+        dos.writeInt(transitions().size());
+        for (Transition transition : transitions) {
+            dos.writeInt(transition.fromState);
+            dos.writeInt(transition.toState);
+        }
     }
 }
