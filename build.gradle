@@ -1,10 +1,11 @@
-plugins {
+plugins {    
     id 'me.champeau.gradle.jmh' version '0.2.0'
 }
 
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'jacoco'
+apply plugin: 'maven'
 apply plugin: 'me.champeau.gradle.jmh'
 
 repositories {
@@ -29,6 +30,9 @@ sourceSets {
         compileClasspath += configurations.compileOnly
     }
 }
+
+version = '0.1-SNAPSHOT'
+group = 'org.allenai'
 
 dependencies {
     compile 'org.slf4j:slf4j-simple:1.7.7'
