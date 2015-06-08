@@ -55,20 +55,28 @@ public class CRFLogLikelihoodObjective<S> implements ExampleObjectiveFn<CRFIndex
         double logDenominator = fbResult.getLogZ();
         double[][] nodeMarginals = fbResult.getNodeMarginals();
         double[][] edgeMarginals = fbResult.getEdgeMarginals();
+        int numStates = weightEncoder.stateSpace.states().size();
+        int numTransitions = weightEncoder.stateSpace.transitions().size();
         for (int idx = 0; idx+1 < example.getSequenceLength(); idx++) {
             Vector.Iterator nodePreds = example.getNodePredicateValues(idx);
-            Vector.Iterator edgePreds = example.getEdgePredicateValues(idx);
-            for (int s = 0; s < weightEncoder.stateSpace.states().size(); s++) {
-                final int state = s;
-                updateGrad(outGrad, nodePreds,
-                    (predIdx) -> weightEncoder.nodeWeightIndex(predIdx, state),
-                    -nodeMarginals[idx][s]);
-                List<Transition> transitions = weightEncoder.stateSpace.transitionsFrom(s);
-                for (Transition transition : transitions) {
-                    updateGrad(outGrad, edgePreds,
-                        (predIdx) -> weightEncoder.edgeWeightIndex(predIdx, transition.selfIndex),
-                        -edgeMarginals[idx][transition.selfIndex]);
+            while (!nodePreds.isExhausted()) {
+                int predIdx = (int) nodePreds.index();
+                double predVal = nodePreds.value();
+                for (int s = 0; s < numStates; s++) {
+                    int weightIdx = weightEncoder.nodeWeightIndex(predIdx, s);
+                    outGrad.inc(weightIdx, predVal * -nodeMarginals[idx][s]);
                 }
+                nodePreds.advance();
+            }
+            Vector.Iterator edgePreds = example.getEdgePredicateValues(idx);
+            while (!edgePreds.isExhausted()) {
+                int predIdx = (int) edgePreds.index();
+                double predVal = edgePreds.value();
+                for (int t=0; t < numTransitions; ++t) {
+                    int weightIdx = weightEncoder.edgeWeightIndex(predIdx, t);
+                    outGrad.inc(weightIdx, predVal * -edgeMarginals[idx][t]);
+                }
+                edgePreds.advance();
             }
         }
         assert logNumerator <= logDenominator;

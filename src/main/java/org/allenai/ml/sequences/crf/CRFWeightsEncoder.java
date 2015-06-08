@@ -28,17 +28,14 @@ public class CRFWeightsEncoder<S> {
     // only visible for testing
     static double[] fillRowPotentials(Vector weights, Vector.Iterator predValueIt, int numValues, int weightOffset) {
         double[] rowPotentials = new double[numValues];
-        for (int i = 0; i < numValues; i++) {
-            double score = 0.0;
-            while (!predValueIt.isExhausted()) {
-                long predIdx = predValueIt.index();
-                double predVal = predValueIt.value();
-                long weightIdx = predIdx * numValues + i + weightOffset;
-                score +=  weights.at(weightIdx) * predVal;
-                predValueIt.advance();
+        while (!predValueIt.isExhausted()) {
+            long predIdx = predValueIt.index();
+            double predVal = predValueIt.value();
+            long weightIdxStart = predIdx * numValues + weightOffset;
+            for (int idx = 0; idx < numValues; idx++) {
+                rowPotentials[idx] += weights.at(weightIdxStart + idx) * predVal;
             }
-            rowPotentials[i] = score;
-            predValueIt.reset();
+            predValueIt.advance();
         }
         return rowPotentials;
     }

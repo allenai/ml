@@ -13,6 +13,7 @@ import org.kohsuke.args4j.Option;
 
 import java.io.DataInputStream;
 import java.io.FileInputStream;
+import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 
@@ -35,9 +36,10 @@ public class Evaluator {
         val crf = ConllFormat.loadModel(dis);
         val data = ConllFormat.readData(IOUtils.linesFromPath(opts.dataPath), true);
         long start = System.currentTimeMillis();
-        double acc = TokenAccuracy.compute(crf, data.stream()
+        List<List<Pair<String, ConllFormat.Row>>> evalData = data.stream()
             .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
-            .collect(toList()));
+            .collect(toList());
+        double acc = TokenAccuracy.compute(crf, evalData, 1);
         long stop = System.currentTimeMillis();
         return Tuples.pair(acc, (double)(stop-start)/data.size());
     }

@@ -11,13 +11,9 @@ import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
-@RequiredArgsConstructor
 @Slf4j
 public class CRFFeatureEncoder<S, O, F> {
 
@@ -26,6 +22,16 @@ public class CRFFeatureEncoder<S, O, F> {
     public final Indexer<F> nodeFeatures;
     public final Indexer<F> edgeFeatures;
 
+    public CRFFeatureEncoder(CRFPredicateExtractor<O, F> predicateExtractor,
+                             StateSpace<S> stateSpace,
+                             Indexer<F> nodeFeatures,
+                             Indexer<F> edgeFeatures) {
+        this.predicateExtractor = predicateExtractor;
+        this.stateSpace = stateSpace;
+        this.nodeFeatures = nodeFeatures;
+        this.edgeFeatures = edgeFeatures;
+    }
+
     public CRFIndexedExample indexedExample(List<O> example) {
         List<Vector> nodePreds = indexFeatures(predicateExtractor.nodePredicates(example), nodeFeatures);
         List<Vector> edgePreds = indexFeatures(predicateExtractor.edgePredicates(example), edgeFeatures);
@@ -33,10 +39,11 @@ public class CRFFeatureEncoder<S, O, F> {
     }
 
     private static <F> List<Vector> indexFeatures(List<ObjectDoubleMap<F>> featVecs, Indexer<F> index) {
-        return featVecs
-            .stream()
-            .map(featVec -> SparseVector.indexed(featVec, index))
-            .collect(Collectors.toList());
+        List<Vector> result = new ArrayList<>(featVecs.size());
+        for (ObjectDoubleMap<F> featVec : featVecs) {
+            result.add(SparseVector.indexed(featVec, index));
+        }
+        return result;
     }
 
     public CRFIndexedExample indexLabeledExample(List<Pair<O, S>> labeledExample) {
@@ -110,7 +117,8 @@ public class CRFFeatureEncoder<S, O, F> {
             }
         }
         log.info("Indexing features with {} prob to keep and {} threads", opts.probabilityToAccept, opts.numThreads);
-        IndexData indexData = Parallel.mapReduce(examples, new IndexWorker(), opts.numThreads);
+        IndexData indexData = Parallel.mapReduce(examples, new IndexWorker(),
+            Parallel.MROpts.withThreads(opts.numThreads));
         return new CRFFeatureEncoder(predicateExtractor,
             stateSpace,
             Indexer.fromStream(indexData.nodeFeatures.stream()),

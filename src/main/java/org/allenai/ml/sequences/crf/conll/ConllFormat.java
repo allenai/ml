@@ -51,24 +51,28 @@ public class ConllFormat {
         return chunks;
     }
 
+    public static List<Row> readDatum(List<String> lines, boolean labeled) {
+        List<Row> feats = lines.stream().map(s -> {
+            List<String> cols = Arrays.asList(s.split("\\s"));
+            return labeled ?
+                new Row(cols.subList(0, cols.size()-1), cols.get(cols.size()-1)) :
+                new Row(cols);
+        }).collect(toList());
+        feats.add(0, new Row(Arrays.asList(startState), startState));
+        feats.add(new Row(Arrays.asList(stopState), stopState));
+        return feats;
+    }
+
     public static List<List<Row>> readData(Stream<String> lines, boolean labeled) {
         List<List<Row>> result = new ArrayList<>();
         for (List<String> chunk : chunkedLines(lines)) {
-           List<Row> feats = chunk.stream().map(s -> {
-               List<String> cols = Arrays.asList(s.split("\\s"));
-               return labeled ?
-                   new Row(cols.subList(0, cols.size()-1), cols.get(cols.size()-1)) :
-                   new Row(cols);
-           }).collect(toList());
-           feats.add(0, new Row(Arrays.asList(startState), startState));
-           feats.add(new Row(Arrays.asList(stopState), stopState));
-           result.add(feats);
+           result.add(readDatum(chunk, labeled));
         }
         return result;
     }
 
     public static class Row {
-        private final ImmutableList<String> features;
+        public final ImmutableList<String> features;
         private final String label;
 
         public Row(List<String> features) {

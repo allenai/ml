@@ -16,7 +16,7 @@ public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
     private final CRFWeightsEncoder<S> weightsEncoder;
     private final Vector weights;
     @Setter
-    private InferenceMode inferenceMode = InferenceMode.MAX_TOKEN;
+    private InferenceMode inferenceMode = InferenceMode.VITERBI;
 
     public static enum InferenceMode {
         VITERBI,

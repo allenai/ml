@@ -1,7 +1,10 @@
 package org.allenai.ml.util;
 
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnel;
 import com.gs.collections.api.map.primitive.ObjectIntMap;
 import com.gs.collections.impl.map.mutable.primitive.ObjectIntHashMap;
+import javafx.scene.effect.Bloom;
 import lombok.val;
 
 import java.io.DataInputStream;
@@ -20,6 +23,7 @@ public class Indexer<T> extends AbstractList<T> {
 
     private final List<T> list;
     private final ObjectIntMap<T> objToIndex;
+    private BloomFilter filter;
 
     private Indexer(Stream<T> elems) {
         this.list = elems
@@ -30,6 +34,21 @@ public class Indexer<T> extends AbstractList<T> {
             m.put(list.get(idx), idx);
         }
         this.objToIndex = m.toImmutable();
+    }
+
+    /**
+     * Put a bloom filter in front of the `indexOf` call. Useful for cases
+     * when you expect a lot of out-of-indexer calls.
+     * @param expectedFailureProb
+     */
+    public void addBloomFilter(double expectedFailureProb) {
+        Funnel<T> funnel = (t, sink) -> {
+            sink.putInt(t.hashCode());
+        };
+        this.filter = BloomFilter.create(funnel, size(), expectedFailureProb);
+        for (T t : list) {
+            this.filter.put(t);
+        }
     }
 
     @Override
@@ -69,6 +88,9 @@ public class Indexer<T> extends AbstractList<T> {
 
     @Override
     public int indexOf(Object o) {
+        if (filter != null && !filter.mightContain(o)) {
+            return -1;
+        }
         return objToIndex.get(o);
     }
 

@@ -1,5 +1,8 @@
 package org.allenai.ml.sequences;
 
+import com.gs.collections.api.list.primitive.DoubleList;
+import com.gs.collections.api.list.primitive.MutableDoubleList;
+import com.gs.collections.impl.list.mutable.primitive.DoubleArrayList;
 import org.allenai.ml.math.SloppyMath;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -34,6 +37,64 @@ public class ForwardBackwards<S> {
         return new Result(logPotentials);
     }
 
+    interface RingOp {
+        void clear();
+        void add(double x);
+        double compute();
+    }
+
+    class MaxRing implements RingOp {
+        private double max = Double.NEGATIVE_INFINITY;
+
+        @Override
+        public void clear() {
+            max = Double.NEGATIVE_INFINITY;
+        }
+
+        @Override
+        public void add(double x) {
+            if (x > max) {
+                max = x;
+            }
+        }
+
+        @Override
+        public double compute() {
+            return max;
+        }
+    }
+
+    class LogAddRing implements RingOp {
+        MutableDoubleList xs = new DoubleArrayList(stateSpace.transitions().size());
+        double max = Double.NEGATIVE_INFINITY;
+
+        public void clear() {
+            xs.clear();
+            max = Double.NEGATIVE_INFINITY;
+        }
+
+        @Override
+        public void add(double x) {
+            if (x > max) {
+                max = x;
+            }
+            if (x - max >= SloppyMath.EXP_THRESH) {
+                xs.add(x);
+            }
+        }
+
+        @Override
+        public double compute() {
+            double sumExpNegDiffs = 0.0;
+            for (int idx = 0; idx < xs.size(); idx++) {
+                double x = xs.get(idx);
+                sumExpNegDiffs += SloppyMath.sloppyExp(x - max);
+            }
+            return sumExpNegDiffs > 0.0
+                ? max + Math.log(sumExpNegDiffs)
+                : max;
+        }
+    }
 
     /**
      * A class that lazily computes various quantities associated with the ForwardBackwards algorithms. You only
@@ -53,7 +114,7 @@ public class ForwardBackwards<S> {
         private final List<S> viterbi = computeViterbi();
 
         @Getter(value = AccessLevel.PRIVATE, lazy = true)
-        private final double[][] alphas = computeAlphas(SloppyMath::logSumExp);
+        private final double[][] alphas = computeAlphas(new LogAddRing());
 
         @Getter(value = AccessLevel.PRIVATE, lazy = true)
         private final double[][] betas = computeBetas();
@@ -68,7 +129,7 @@ public class ForwardBackwards<S> {
             return getAlphas()[seqLen-1][stateSpace.stopStateIndex()];
         }
 
-        private double[][] computeAlphas(ToDoubleFunction<double[]> combiner) {
+        private double[][] computeAlphas(RingOp ringOp) {
             double[][] alphas = new double[seqLen][numStates];
             for (double[] row: alphas) {
                 Arrays.fill(row, Double.NEGATIVE_INFINITY);
@@ -80,11 +141,12 @@ public class ForwardBackwards<S> {
                 int prevPos = i-1;
                 for (int s=0; s < numStates; ++s) {
                     // potential bottleneck
-                    double[] forwardPaths = stateSpace.transitionsTo(s)
-                        .stream()
-                        .mapToDouble(t -> alphas[prevPos][t.fromState] + potentials[prevPos][t.selfIndex])
-                        .toArray();
-                    alphas[i][s] = combiner.applyAsDouble(forwardPaths);
+                    ringOp.clear();
+                    for (Transition t : stateSpace.transitionsTo(s)) {
+                        double pathVal = alphas[prevPos][t.fromState] + potentials[prevPos][t.selfIndex];
+                        ringOp.add(pathVal);
+                    }
+                    alphas[i][s] = ringOp.compute();
                 }
             }
             return alphas;
@@ -97,6 +159,7 @@ public class ForwardBackwards<S> {
             }
             // initialize
             betas[seqLen-1][stateSpace.stopStateIndex()] = 0.0;
+            RingOp ringOp = new LogAddRing();
             // go forwards
             for (int i=seqLen-2; i >= 0; --i) {
                 // create new effectively final variable for lambda use
@@ -104,11 +167,12 @@ public class ForwardBackwards<S> {
                 int nextPos = i+1;
                 for (int s=0; s < numStates; ++s) {
                     // potential bottleneck
-                    double[] backwardsPath = stateSpace.transitionsFrom(s)
-                        .stream()
-                        .mapToDouble(t -> betas[nextPos][t.toState] + potentials[curPos][t.selfIndex])
-                        .toArray();
-                    betas[i][s] = SloppyMath.logSumExp(backwardsPath);
+                    ringOp.clear();
+                    for (Transition t : stateSpace.transitionsFrom(s)) {
+                        double val = betas[nextPos][t.toState] + potentials[curPos][t.selfIndex];
+                        ringOp.add(val);
+                    }
+                    betas[i][s] = ringOp.compute();
                 }
             }
             return betas;
@@ -117,7 +181,7 @@ public class ForwardBackwards<S> {
 
         private List<S> computeViterbi() {
             // Use the MAX operation to compute alphas
-            double[][] maxAlphas = computeAlphas(xs -> DoubleStream.of(xs).max().orElse(Double.NEGATIVE_INFINITY));
+            double[][] maxAlphas = computeAlphas(new MaxRing());
             // Compute the best path iteratively by figuring out which operation lead to it rather
             // than compute and store back-pointers, this is more efficient since a memory read is much
             // cheaper than a write
@@ -129,17 +193,18 @@ public class ForwardBackwards<S> {
                 int curPos = pos;
                 double curTarget = targetValue;
                 // Find the transition that leads to the target value
-                Optional<Transition> correctTransition = stateSpace.transitionsTo(targetState)
-                        .stream()
-                        .filter(trans -> {
-                            double value = potentials[curPos][trans.selfIndex] + maxAlphas[curPos][trans.fromState];
-                            return Math.abs(value - curTarget) < 1.0e-8;
-                        })
-                        .findFirst();
-                if (!correctTransition.isPresent()) {
+                Transition correctTransition = null;
+                for (Transition trans : stateSpace.transitionsTo(targetState)) {
+                    double value = potentials[curPos][trans.selfIndex] + maxAlphas[curPos][trans.fromState];
+                    if (Math.abs(value - curTarget) < 1.0e-8) {
+                        correctTransition = trans;
+                        break;
+                    }
+                }
+                if (correctTransition == null) {
                     throw new RuntimeException("viterbi can't find path found by computeAlphas(MAX)");
                 }
-                targetState = correctTransition.get().fromState;
+                targetState = correctTransition.fromState;
                 targetValue = maxAlphas[pos][targetState];
                 // Add state to result as long as not start state
                 if (pos > 0) {

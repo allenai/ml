@@ -7,6 +7,8 @@ import org.allenai.ml.util.Parallel;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Objective function calculation over an entire dataset. Natively supports multiple threads of execution. You can
@@ -16,14 +18,16 @@ public class BatchObjectiveFn<T> implements GradientFn {
     private final List<T> data;
     private final long dimension;
     private final ExampleObjectiveFn<T> exampleObjectiveFn;
-    private final int numThreads;
+    private final Parallel.MROpts mapReduceOpts;
 
     public BatchObjectiveFn(List<T> data, ExampleObjectiveFn<T> exampleObjectiveFn, long dimension, int numThreads) {
         // copy to a GS collection
         this.data = new ArrayList<>(data);
         this.exampleObjectiveFn = exampleObjectiveFn;
         this.dimension = dimension;
-        this.numThreads = numThreads;
+        this.mapReduceOpts = new Parallel.MROpts();
+        mapReduceOpts.numWorkers = numThreads;
+        mapReduceOpts.executorService = Executors.newFixedThreadPool(numThreads);
     }
 
 
@@ -54,7 +58,7 @@ public class BatchObjectiveFn<T> implements GradientFn {
         };
         // The optimization code is in terms of 'minimizing' so we want to
         // return the negative objective value and gradient
-        ObjectiveStats stats = Parallel.mapReduce(data, driver, numThreads);
+        ObjectiveStats stats = Parallel.mapReduce(data, driver, mapReduceOpts);
         return Result.of(-stats.value, stats.gradient.scale(-1.0));
     }
 

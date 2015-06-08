@@ -1,5 +1,6 @@
 package org.allenai.ml.sequences.crf.conll;
 
+import org.allenai.ml.linalg.Vector;
 import org.allenai.ml.objective.BatchObjectiveFn;
 import org.allenai.ml.optimize.*;
 import org.allenai.ml.sequences.StateSpace;
@@ -74,6 +75,16 @@ public class Trainer {
             featureEncoder.nodeFeatures.size(), featureEncoder.edgeFeatures.size());
         val weightEncoder = new CRFWeightsEncoder<String>(stateSpace,
             featureEncoder.nodeFeatures.size(), featureEncoder.edgeFeatures.size());
+        Vector weights = trainWeights(opts, labeledData, weightEncoder, featureEncoder);
+        val dos = new DataOutputStream(new FileOutputStream(opts.modelPath));
+        logger.info("Writing model to {}", opts.modelPath);
+        ConllFormat.saveModel(dos, templateLines, featureEncoder, weights);
+    }
+
+    private static Vector trainWeights(Opts opts,
+                                       List<List<ConllFormat.Row>> labeledData,
+                                       CRFWeightsEncoder<String> weightEncoder,
+                                       CRFFeatureEncoder featureEncoder) {
         val objective = new CRFLogLikelihoodObjective<>(weightEncoder);
         List<CRFIndexedExample> indexedData = labeledData.stream()
             .map(rows -> {
@@ -91,16 +102,16 @@ public class Trainer {
         optimizerOpts.maxIters = opts.maxIterations;
         optimizerOpts.iterCallback = weights -> {
             CRFModel<String, ConllFormat.Row, String> crfModel = new CRFModel<>(featureEncoder,weightEncoder,weights);
-            double acc = TokenAccuracy.compute(crfModel, labeledData.stream()
+            long start = System.currentTimeMillis();
+            List<List<Pair<String, ConllFormat.Row>>> evalData = labeledData.stream()
                 .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
-                .collect(toList()));
-            logger.info("Accuracy: {}", acc);
+                .collect(toList());
+            double acc = TokenAccuracy.compute(crfModel, evalData, opts.numThreads);
+            long stop = System.currentTimeMillis();
+            logger.info("Accuracy: {} (took {} ms)", acc, stop-start);
         };
         val optimzier = new NewtonMethod(__ -> quasiNewton, optimizerOpts);
-        val weights = optimzier.minimize(cachedObjFn).xmin;
-        val dos = new DataOutputStream(new FileOutputStream(opts.modelPath));
-        logger.info("Writing model to {}", opts.modelPath);
-        ConllFormat.saveModel(dos, templateLines, featureEncoder, weights);
+        return optimzier.minimize(cachedObjFn).xmin;
     }
 
     @SneakyThrows
