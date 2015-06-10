@@ -7,6 +7,7 @@ apply plugin: 'idea'
 apply plugin: 'jacoco'
 apply plugin: 'maven'
 apply plugin: 'me.champeau.gradle.jmh'
+apply plugin: 'maven'
 
 repositories {
     mavenCentral()
@@ -33,6 +34,8 @@ sourceSets {
 
 version = '0.1-SNAPSHOT'
 group = 'org.allenai'
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
 
 dependencies {
     compile 'org.slf4j:slf4j-simple:1.7.7'
