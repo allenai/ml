@@ -1,14 +1,19 @@
 package org.allenai.ml.util;
 
+import com.gs.collections.api.map.primitive.ObjectDoubleMap;
 import com.gs.collections.api.map.primitive.ObjectIntMap;
+import com.gs.collections.impl.map.mutable.primitive.ObjectDoubleHashMap;
 import com.gs.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 import lombok.val;
+import org.allenai.ml.linalg.Vector;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.*;
 import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Iterator;
+import java.util.AbstractList;
 import java.util.stream.Stream;
 
 /**
@@ -86,6 +91,14 @@ public class Indexer<T> extends AbstractList<T> {
 
     public static <T> Indexer<T> fromStream(Stream<T> stream) {
         return new Indexer<>(stream);
+    }
+
+    public ObjectDoubleMap<T> toMap(Vector vector) {
+        ObjectDoubleHashMap<T> m = new ObjectDoubleHashMap<T>();
+        vector.nonZeroEntries().forEach(e -> {
+            m.put(this.get((int)e.index), e.value);
+        });
+        return m;
     }
 
     private final static String DATA_VERSION = "1.0";
