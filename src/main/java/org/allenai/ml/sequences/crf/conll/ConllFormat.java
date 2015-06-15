@@ -1,5 +1,6 @@
 package org.allenai.ml.sequences.crf.conll;
 
+import lombok.extern.slf4j.Slf4j;
 import org.allenai.ml.linalg.DenseVector;
 import org.allenai.ml.linalg.Vector;
 import org.allenai.ml.sequences.StateSpace;
@@ -34,6 +35,7 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 
+@Slf4j
 public class ConllFormat {
 
     private static List<List<String>> chunkedLines(Stream<String> lines) {
@@ -242,7 +244,7 @@ public class ConllFormat {
         return new ConllPredicateExtractor(nodeTemplates, edgeTemplates);
     }
 
-    private final static String DATA_VERSION = "1.0";
+    private final static String DATA_VERSION = "1.1";
 
     public static void saveModel(DataOutputStream dos,
                                  List<String> featureTemplateLines,

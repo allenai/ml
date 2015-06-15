@@ -19,7 +19,7 @@ public class Functional {
      */
     public static <T> List<List<T>> partition(List<T> elems, int numPartitions) {
         if (elems.size() < numPartitions) {
-            throw new IllegalArgumentException("Must have more elems than partitions");
+            numPartitions = elems.size();
         }
         List<List<T>> parts = new ArrayList<>(numPartitions);
         int numPerPart = elems.size() / numPartitions;

@@ -10,14 +10,15 @@ import com.gs.collections.impl.tuple.Tuples;
 import lombok.SneakyThrows;
 import lombok.val;
 import org.allenai.ml.sequences.crf.*;
+import org.allenai.ml.util.IOUtils;
+import org.allenai.ml.util.Parallel;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataOutputStream;
-import java.io.FileOutputStream;
+import java.io.*;
 import java.util.List;
 
 import static org.allenai.ml.util.IOUtils.linesFromPath;
@@ -94,7 +95,8 @@ public class Trainer {
                 return featureEncoder.indexLabeledExample(pairs);
             })
             .collect(toList());
-        val objFn = new BatchObjectiveFn<>(indexedData, objective, weightEncoder.numParameters(), opts.numThreads);
+        val mrOpts = Parallel.MROpts.withThreads(opts.numThreads);
+        val objFn = new BatchObjectiveFn<>(indexedData, objective, weightEncoder.numParameters(), mrOpts);
         GradientFn regularizer = Regularizer.l2(objFn.dimension(), opts.sigmaSquared);
         val cachedObjFn = new CachingGradientFn(opts.lbfgsHistorySize, objFn.add(regularizer));
         val quasiNewton = QuasiNewton.lbfgs(opts.lbfgsHistorySize);
@@ -106,12 +108,14 @@ public class Trainer {
             List<List<Pair<String, ConllFormat.Row>>> evalData = labeledData.stream()
                 .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
                 .collect(toList());
-            double acc = TokenAccuracy.compute(crfModel, evalData, opts.numThreads);
+            double acc = TokenAccuracy.compute(crfModel, evalData, mrOpts);
             long stop = System.currentTimeMillis();
             logger.info("Accuracy: {} (took {} ms)", acc, stop-start);
         };
         val optimzier = new NewtonMethod(__ -> quasiNewton, optimizerOpts);
-        return optimzier.minimize(cachedObjFn).xmin;
+        Vector argMin = optimzier.minimize(cachedObjFn).xmin;
+        objFn.shutdown();
+        return argMin;
     }
 
     @SneakyThrows

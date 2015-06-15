@@ -7,6 +7,7 @@ import org.allenai.ml.optimize.NewtonMethod;
 import org.allenai.ml.optimize.QuasiNewton;
 import lombok.AllArgsConstructor;
 import lombok.val;
+import org.allenai.ml.util.Parallel;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -36,7 +37,7 @@ public class BatchObjectiveFnTest {
             grad.scaleInPlace(-1.0);
             return -0.5 * diff * diff;
         };
-        GradientFn objFn = new BatchObjectiveFn<>(examples, regressionObjective, 2, 2);
+        GradientFn objFn = new BatchObjectiveFn<>(examples, regressionObjective, 2, Parallel.MROpts.withThreads(2));
         val res = objFn.apply(DenseVector.of(2));
         assertEquals(res.fx, 0.5 * (1.0 * 1.0 + 2.0 * 2.0 + 3.0 * 3.0), 1.0e-4);
 

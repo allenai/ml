@@ -8,7 +8,7 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 
 public class TokenAccuracy {
-    public static <S, O> double compute(SequenceTagger<S, O> tagger, List<List<Pair<S, O>>> data, int numThreads) {
+    public static <S, O> double compute(SequenceTagger<S, O> tagger, List<List<Pair<S, O>>> data, Parallel.MROpts mrOpts) {
         class AccStats {
             int numer = 0;
             int denom = 0;
@@ -40,7 +40,7 @@ public class TokenAccuracy {
                 a.denom += b.denom;
             }
         };
-        AccStats stats = Parallel.mapReduce(data, driver, Parallel.MROpts.withThreads(numThreads));
+        AccStats stats = Parallel.mapReduce(data, driver, mrOpts);
         return (double)stats.numer/(double)stats.denom;
     }
 }

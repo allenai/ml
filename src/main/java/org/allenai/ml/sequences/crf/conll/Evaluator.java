@@ -7,6 +7,7 @@ import com.gs.collections.impl.tuple.Tuples;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.allenai.ml.util.Parallel;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -39,7 +40,7 @@ public class Evaluator {
         List<List<Pair<String, ConllFormat.Row>>> evalData = data.stream()
             .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
             .collect(toList());
-        double acc = TokenAccuracy.compute(crf, evalData, 1);
+        double acc = TokenAccuracy.compute(crf, evalData, Parallel.MROpts.withThreads(1));
         long stop = System.currentTimeMillis();
         return Tuples.pair(acc, (double)(stop-start)/data.size());
     }

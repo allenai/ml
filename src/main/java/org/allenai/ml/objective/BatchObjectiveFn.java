@@ -20,14 +20,22 @@ public class BatchObjectiveFn<T> implements GradientFn {
     private final ExampleObjectiveFn<T> exampleObjectiveFn;
     private final Parallel.MROpts mapReduceOpts;
 
-    public BatchObjectiveFn(List<T> data, ExampleObjectiveFn<T> exampleObjectiveFn, long dimension, int numThreads) {
+    public BatchObjectiveFn(List<T> data,
+                            ExampleObjectiveFn<T> exampleObjectiveFn,
+                            long dimension,
+                            Parallel.MROpts mrOpts) {
         // copy to a GS collection
         this.data = new ArrayList<>(data);
         this.exampleObjectiveFn = exampleObjectiveFn;
         this.dimension = dimension;
-        this.mapReduceOpts = new Parallel.MROpts();
-        mapReduceOpts.numWorkers = numThreads;
-        mapReduceOpts.executorService = Executors.newFixedThreadPool(numThreads);
+        this.mapReduceOpts = mrOpts;
+    }
+
+    /**
+     * Must be called to dispose of thread pool
+     */
+    public void shutdown() {
+        Parallel.shutdownExecutor(mapReduceOpts.executorService, Long.MAX_VALUE);
     }
 
 
