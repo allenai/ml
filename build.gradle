@@ -1,4 +1,4 @@
-plugins {    
+plugins {
     id 'me.champeau.gradle.jmh' version '0.2.0'
 }
 
@@ -32,7 +32,7 @@ sourceSets {
     }
 }
 
-version = '0.2-SNAPSHOT'
+version = '0.2'
 group = 'org.allenai'
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
