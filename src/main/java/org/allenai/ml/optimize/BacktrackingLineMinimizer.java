@@ -21,13 +21,14 @@ public class BacktrackingLineMinimizer implements LineMinimizer {
         if (grad.l2NormSquared() < minStepLen) {
             return Result.of(0.0, f0);
         }
-        final double delta = beta * grad.dotProduct(dir);
+        // Don't be picky about reductions when the gradient is approximate
+        final double delta = gradFn.isGradientApproximate() ? 0.0 :  beta * grad.dotProduct(dir);
         double stepLen = 1.0;
         while (stepLen >= minStepLen) {
             Vector stepX = x.add(stepLen, dir);
             final double fx = gradFn.apply(stepX).fx;
             logger.trace("Step size: alpha {}, new {}, old {}", stepLen, fx, f0);
-            if (fx <= f0 + stepLen * delta) {
+            if (fx < f0 + stepLen * delta) {
                 return Result.of(stepLen, fx);
             }
             stepLen *= alpha;

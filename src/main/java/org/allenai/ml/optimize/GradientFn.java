@@ -43,6 +43,10 @@ public interface GradientFn extends Function<Vector, GradientFn.Result> {
         };
     }
 
+    default boolean isGradientApproximate() {
+        return false;
+    }
+
     static GradientFn from(long dimension, Function<Vector, Result> fn) {
         return new GradientFn() {
             @Override
