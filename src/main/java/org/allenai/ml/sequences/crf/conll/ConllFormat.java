@@ -55,9 +55,12 @@ public class ConllFormat {
 
     public static List<Row> readDatum(List<String> lines, boolean labeled) {
         List<Row> feats = lines.stream().map(s -> {
-            List<String> cols = Arrays.asList(s.split("\\s"));
+            List<String> cols = Arrays.asList(s.split("\\t+"));
+            if (labeled && cols.size() < 2) {
+                throw new IllegalArgumentException("Labeled row doesn't appear to have at least two columns");
+            }
             return labeled ?
-                new Row(cols.subList(0, cols.size()-1), cols.get(cols.size()-1)) :
+                new Row(cols.subList(0, cols.size() - 1), cols.get(cols.size() - 1)) :
                 new Row(cols);
         }).collect(toList());
         feats.add(0, new Row(Arrays.asList(startState), startState));
