@@ -1,16 +1,16 @@
 package org.allenai.ml.sequences.crf.conll;
 
+import org.allenai.ml.eval.FMeasure;
 import org.allenai.ml.linalg.Vector;
 import org.allenai.ml.objective.BatchObjectiveFn;
 import org.allenai.ml.optimize.*;
 import org.allenai.ml.sequences.StateSpace;
-import org.allenai.ml.sequences.TokenAccuracy;
+import org.allenai.ml.sequences.Evaluation;
 import com.gs.collections.api.tuple.Pair;
 import com.gs.collections.impl.tuple.Tuples;
 import lombok.SneakyThrows;
 import lombok.val;
 import org.allenai.ml.sequences.crf.*;
-import org.allenai.ml.util.IOUtils;
 import org.allenai.ml.util.Parallel;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.List;
+import java.util.*;
 
 import static org.allenai.ml.util.IOUtils.linesFromPath;
 import static java.util.stream.Collectors.toList;
@@ -108,9 +108,9 @@ public class Trainer {
             List<List<Pair<String, ConllFormat.Row>>> evalData = labeledData.stream()
                 .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
                 .collect(toList());
-            double acc = TokenAccuracy.compute(crfModel, evalData, mrOpts);
+            Evaluation<String> eval = Evaluation.compute(crfModel, evalData, mrOpts);
             long stop = System.currentTimeMillis();
-            logger.info("Accuracy: {} (took {} ms)", acc, stop-start);
+            logger.info("Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
         };
         val optimzier = new NewtonMethod(__ -> quasiNewton, optimizerOpts);
         Vector argMin = optimzier.minimize(cachedObjFn).xmin;

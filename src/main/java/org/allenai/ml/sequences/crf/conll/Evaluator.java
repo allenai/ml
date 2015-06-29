@@ -1,6 +1,6 @@
 package org.allenai.ml.sequences.crf.conll;
 
-import org.allenai.ml.sequences.TokenAccuracy;
+import org.allenai.ml.sequences.Evaluation;
 import org.allenai.ml.util.IOUtils;
 import com.gs.collections.api.tuple.Pair;
 import com.gs.collections.impl.tuple.Tuples;
@@ -40,7 +40,7 @@ public class Evaluator {
         List<List<Pair<String, ConllFormat.Row>>> evalData = data.stream()
             .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
             .collect(toList());
-        double acc = TokenAccuracy.compute(crf, evalData, Parallel.MROpts.withThreads(1));
+        double acc = Evaluation.compute(crf, evalData, Parallel.MROpts.withThreads(1)).tokenAccuracy.accuracy();
         long stop = System.currentTimeMillis();
         return Tuples.pair(acc, (double)(stop-start)/data.size());
     }
