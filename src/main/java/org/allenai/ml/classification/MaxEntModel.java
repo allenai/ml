@@ -15,6 +15,7 @@ import org.allenai.ml.objective.BatchObjectiveFn;
 import org.allenai.ml.optimize.*;
 import org.allenai.ml.util.IOUtils;
 import org.allenai.ml.util.Indexer;
+import org.allenai.ml.util.Parallel;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -81,7 +82,7 @@ public class MaxEntModel<L, D, F> implements ProbabilisticClassifier<D, L> {
                 return PrimitiveTuples.pair(classIdx, featVec);
             })
             .collect(Collectors.toList());
-        val objFn = new BatchObjectiveFn(indexedLabeledData, maxent, dimension, opts.numThreads);
+        GradientFn objFn = new BatchObjectiveFn(indexedLabeledData, maxent, dimension, Parallel.MROpts.withThreads(opts.numThreads));
         GradientFn regularizer = Regularizer.l2(objFn.dimension(), opts.sigmaSq);
         val cachedObjFn = new CachingGradientFn(3, objFn.add(regularizer));
         val quasiNewton = QuasiNewton.lbfgs(3);
