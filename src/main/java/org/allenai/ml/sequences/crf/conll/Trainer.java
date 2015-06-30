@@ -53,6 +53,9 @@ public class Trainer {
         @Option(name = "-lbfgsHistorySize", usage = "history size for LBFGS")
         public int lbfgsHistorySize = 3;
 
+        @Option(name = "-testSplitRatio", usage = "Data to hold for eval ever iter")
+        public double testSplitRatio = 0.0;
+
     }
 
     @SneakyThrows
@@ -87,7 +90,23 @@ public class Trainer {
                                        CRFWeightsEncoder<String> weightEncoder,
                                        CRFFeatureEncoder featureEncoder) {
         val objective = new CRFLogLikelihoodObjective<>(weightEncoder);
-        List<CRFIndexedExample> indexedData = labeledData.stream()
+
+
+        List<List<ConllFormat.Row>> trainLabeledData ;
+        List<List<ConllFormat.Row>> testLabeledData ;
+        if (opts.testSplitRatio > 0.0) {
+            Collections.shuffle(labeledData, new Random(0L));
+            int numTrain = (int) ((1.0-opts.testSplitRatio) * labeledData.size());
+            trainLabeledData = labeledData.subList(0, numTrain);
+            testLabeledData = labeledData.subList(numTrain, labeledData.size());
+        } else {
+            trainLabeledData = labeledData;
+            testLabeledData = Arrays.asList();
+        }
+        labeledData = null;
+        logger.info("Num train: {}, Num test: {}", trainLabeledData.size(), testLabeledData.size());
+
+        List<CRFIndexedExample> indexedData = trainLabeledData.stream()
             .map(rows -> {
                 List<Pair<ConllFormat.Row, String>> pairs = rows.stream()
                     .map(r -> Tuples.pair(r, r.getLabel().get()))
@@ -105,12 +124,21 @@ public class Trainer {
         optimizerOpts.iterCallback = weights -> {
             CRFModel<String, ConllFormat.Row, String> crfModel = new CRFModel<>(featureEncoder,weightEncoder,weights);
             long start = System.currentTimeMillis();
-            List<List<Pair<String, ConllFormat.Row>>> evalData = labeledData.stream()
+            List<List<Pair<String, ConllFormat.Row>>> trainEvalData = trainLabeledData.stream()
                 .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
                 .collect(toList());
-            Evaluation<String> eval = Evaluation.compute(crfModel, evalData, mrOpts);
+            Evaluation<String> eval = Evaluation.compute(crfModel, trainEvalData, mrOpts);
             long stop = System.currentTimeMillis();
-            logger.info("Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
+            logger.info("Train Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
+            if (!testLabeledData.isEmpty()) {
+                start = System.currentTimeMillis();
+                List<List<Pair<String, ConllFormat.Row>>> testEvalData = testLabeledData.stream()
+                    .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
+                    .collect(toList());
+                eval = Evaluation.compute(crfModel, testEvalData, mrOpts);
+                stop = System.currentTimeMillis();
+                logger.info("Eval Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
+            }
         };
         val optimzier = new NewtonMethod(__ -> quasiNewton, optimizerOpts);
         Vector argMin = optimzier.minimize(cachedObjFn).xmin;
