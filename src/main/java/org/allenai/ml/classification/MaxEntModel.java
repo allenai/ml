@@ -60,7 +60,9 @@ public class MaxEntModel<L, D, F> implements ProbabilisticClassifier<D, L> {
         public int numThreads = 1;
         public double sigmaSq;
         public long randSeed = 0L;
+        public NewtonMethod.Opts optimizerOpts = null;
     }
+
 
     public static <D> MaxEntModel<String, D, String> train(List<Pair<D, String>> labeledData,
                                                        FeatureExtractor<D, String> featureExtractor,
@@ -86,7 +88,7 @@ public class MaxEntModel<L, D, F> implements ProbabilisticClassifier<D, L> {
         GradientFn regularizer = Regularizer.l2(objFn.dimension(), opts.sigmaSq);
         val cachedObjFn = new CachingGradientFn(3, objFn.add(regularizer));
         val quasiNewton = QuasiNewton.lbfgs(3);
-        val optimizerOpts = new NewtonMethod.Opts();
+        val optimizerOpts = opts.optimizerOpts != null ? opts.optimizerOpts : new NewtonMethod.Opts();
         val optimzier = new NewtonMethod(__ -> quasiNewton, optimizerOpts);
         Vector weights = optimzier.minimize(cachedObjFn).xmin;
         return new MaxEntModel<>(featIndexer, classIndexer, weights, featureExtractor);
