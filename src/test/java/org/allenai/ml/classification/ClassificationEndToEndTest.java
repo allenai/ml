@@ -44,7 +44,7 @@ public class ClassificationEndToEndTest {
         // Feature extract is bag of words
         FeatureExtractor<Set<String>, String> featureExtractor = bag -> {
             ObjectDoubleHashMap<String> fv = new ObjectDoubleHashMap<>(bag.size());
-            bag.forEach(x -> fv.put(x, 1.0));
+            bag.forEach(x -> fv.put(x, -1.0));
             return fv;
         };
         MaxEntModel<String, Set<String>, String> maxEntModel = MaxEntModel.train(trainData, featureExtractor, trainOpts);

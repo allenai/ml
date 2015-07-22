@@ -19,16 +19,18 @@ public class MaxEntObjective implements ExampleObjectiveFn<IntObjectPair<Vector>
     public double evaluate(IntObjectPair<Vector> labeledExample, Vector inParams, Vector outGrad) {
         int trueClassIdx = labeledExample.getOne();
         double[] classProbs = classProbs(labeledExample.getTwo(), inParams, numClasses);
-        labeledExample.getTwo().nonZeroEntries().forEach(e -> {
-            int predIdx = (int) e.index;
-            double predVal = e.value;
+        Vector.Iterator iter = labeledExample.getTwo().iterator();
+        while (!iter.isExhausted()) {
+            int predIdx = (int) iter.index();
+            double predVal = iter.value();
             // increment gradient for true class features
             outGrad.inc(weightIdx(predIdx, trueClassIdx, numClasses), predVal);
             // decrement gradient for all classes by posterior prob
             for (int classIdx = 0; classIdx < numClasses; classIdx++) {
-                outGrad.inc(weightIdx(predIdx, classIdx, numClasses), -classProbs[classIdx]);
+                outGrad.inc(weightIdx(predIdx, classIdx, numClasses), -predVal * classProbs[classIdx]);
             }
-        });
+            iter.advance();
+        }
         return Math.log(classProbs[trueClassIdx]);
     }
 
