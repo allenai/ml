@@ -23,7 +23,7 @@ public class MaxEntObjective implements ExampleObjectiveFn<IntObjectPair<Vector>
             int predIdx = (int) e.index;
             double predVal = e.value;
             // increment gradient for true class features
-            outGrad.inc(weightIdx(predIdx, trueClassIdx, numClasses), 1.0);
+            outGrad.inc(weightIdx(predIdx, trueClassIdx, numClasses), predVal);
             // decrement gradient for all classes by posterior prob
             for (int classIdx = 0; classIdx < numClasses; classIdx++) {
                 outGrad.inc(weightIdx(predIdx, classIdx, numClasses), -classProbs[classIdx]);
