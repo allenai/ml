@@ -23,9 +23,20 @@ public class CRFIndexedExampleTest {
         assertEquals(example.getGoldLabels(), goldLabels);
     }
 
+    public void testZeroValuedCompatiction() {
+        List<Vector> toyNodePreds = CRFTestUtils.toyNodePreds();
+        List<Vector> toyEdgePreds = CRFTestUtils.toyEdgePreds();
+        toyNodePreds.get(0).set(0L, 0.0);
+        testPreds(toyNodePreds, toyEdgePreds);
+    }
+
     public void testPredicateCompaction() {
         List<Vector> toyNodePreds = CRFTestUtils.toyNodePreds();
         List<Vector> toyEdgePreds = CRFTestUtils.toyEdgePreds();
+        testPreds(toyNodePreds, toyEdgePreds);
+    }
+
+    private void testPreds(List<Vector> toyNodePreds, List<Vector> toyEdgePreds) {
         val example = new CRFIndexedExample(toyNodePreds, toyEdgePreds);
         List<Vector> extractedNodePreds = IntStream.range(0, 3)
             .mapToObj(idx -> SparseVector.make(10).addInPlace(example.getNodePredicateValues(idx)))

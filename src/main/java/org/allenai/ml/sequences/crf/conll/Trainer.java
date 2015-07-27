@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.allenai.ml.util.IOUtils.linesFromPath;
 import static java.util.stream.Collectors.toList;
@@ -58,92 +59,79 @@ public class Trainer {
 
     }
 
-    @SneakyThrows
-    public static void trainAndSaveModel(Opts opts) {
-        List<String> templateLines = linesFromPath(opts.templateFile).collect(toList());
-        val predExtractor = ConllFormat.predicatesFromTemplate(templateLines.stream());
-        List<List<ConllFormat.Row>> labeledData = ConllFormat.readData(linesFromPath(opts.trainPath), true);
-        logger.info("CRF training with {} threads and {} labeled examples", opts.numThreads, labeledData.size());
-        List<List<String>> justLabels = labeledData.stream()
-            .map(example -> example.stream().map(e -> e.getLabel().get()).collect(toList()))
-            .collect(toList());
-        val stateSpace = StateSpace.buildFromSequences(justLabels, ConllFormat.startState, ConllFormat.stopState);
-        logger.info("StateSpace: num states {}, num transitions {}",
-            stateSpace.states().size(), stateSpace.transitions().size());
-        val featOpts = CRFFeatureEncoder.BuildOpts.builder()
-            .numThreads(opts.numThreads)
-            .probabilityToAccept(opts.featureKeepProb)
-            .build();
-        val featureEncoder = CRFFeatureEncoder.build(labeledData, predExtractor, stateSpace, featOpts);
-        logger.info("Number of node predicates: {}, edge predicates: {}",
-            featureEncoder.nodeFeatures.size(), featureEncoder.edgeFeatures.size());
-        val weightEncoder = new CRFWeightsEncoder<String>(stateSpace,
-            featureEncoder.nodeFeatures.size(), featureEncoder.edgeFeatures.size());
-        Vector weights = trainWeights(opts, labeledData, weightEncoder, featureEncoder);
-        val dos = new DataOutputStream(new FileOutputStream(opts.modelPath));
-        logger.info("Writing model to {}", opts.modelPath);
-        ConllFormat.saveModel(dos, templateLines, featureEncoder, weights);
+    private static <T> Pair<List<T>, List<T>> splitData(List<T> original, double splitForSecond) {
+        List<T> first = new ArrayList<>();
+        List<T> second = new ArrayList<>();
+        if (splitForSecond > 0.0) {
+            Collections.shuffle(original, new Random(0L));
+            int numFirst = (int) ((1.0-splitForSecond) * original.size());
+            first.addAll(original.subList(0, numFirst));
+            second.addAll(original.subList(numFirst, original.size()));
+        } else {
+            first.addAll(original);
+            // second stays empty
+        }
+        return Tuples.pair(first, second);
     }
 
-    private static Vector trainWeights(Opts opts,
-                                       List<List<ConllFormat.Row>> labeledData,
-                                       CRFWeightsEncoder<String> weightEncoder,
-                                       CRFFeatureEncoder featureEncoder) {
-        val objective = new CRFLogLikelihoodObjective<>(weightEncoder);
+    @SneakyThrows
+    public static void trainAndSaveModel(Opts opts) {
+        // Load labeled data
+        List<String> templateLines = linesFromPath(opts.templateFile).collect(toList());
+        val predExtractor = ConllFormat.predicatesFromTemplate(templateLines.stream());
+        List<List<Pair<ConllFormat.Row, String>>> labeledData = ConllFormat
+            .readData(linesFromPath(opts.trainPath), true)
+            .stream()
+            .map(x -> x.stream().map(y -> y.asLabeledPair().swap()).collect(Collectors.toList()))
+            .collect(Collectors.toList());
 
+        // Split train/test data
+        logger.info("CRF training with {} threads and {} labeled examples", opts.numThreads, labeledData.size());
+        val trainTestPair =
+            splitData(labeledData, opts.testSplitRatio);
+        List<List<Pair<ConllFormat.Row, String>>> trainLabeledData = trainTestPair.getOne();
+        List<List<Pair<ConllFormat.Row, String>>> testLabeledData = trainTestPair.getTwo();
 
-        List<List<ConllFormat.Row>> trainLabeledData ;
-        List<List<ConllFormat.Row>> testLabeledData ;
-        if (opts.testSplitRatio > 0.0) {
-            Collections.shuffle(labeledData, new Random(0L));
-            int numTrain = (int) ((1.0-opts.testSplitRatio) * labeledData.size());
-            trainLabeledData = labeledData.subList(0, numTrain);
-            testLabeledData = labeledData.subList(numTrain, labeledData.size());
-        } else {
-            trainLabeledData = labeledData;
-            testLabeledData = Arrays.asList();
-        }
-        labeledData = null;
-        logger.info("Num train: {}, Num test: {}", trainLabeledData.size(), testLabeledData.size());
+        // Set up Train options
+        CRFTrainer.Opts trainOpts = new CRFTrainer.Opts();
+        trainOpts.sigmaSq = opts.sigmaSquared;
+        trainOpts.lbfgsHistorySize = opts.lbfgsHistorySize;
+        trainOpts.minExpectedFeatureCount = (int) (1.0/opts.featureKeepProb);
+        trainOpts.numThreads = opts.numThreads;
 
-        List<CRFIndexedExample> indexedData = trainLabeledData.stream()
-            .map(rows -> {
-                List<Pair<ConllFormat.Row, String>> pairs = rows.stream()
-                    .map(r -> Tuples.pair(r, r.getLabel().get()))
-                    .collect(toList());
-                return featureEncoder.indexLabeledExample(pairs);
-            })
-            .collect(toList());
-        val mrOpts = Parallel.MROpts.withThreads(opts.numThreads);
-        val objFn = new BatchObjectiveFn<>(indexedData, objective, weightEncoder.numParameters(), mrOpts);
-        GradientFn regularizer = Regularizer.l2(objFn.dimension(), opts.sigmaSquared);
-        val cachedObjFn = new CachingGradientFn(opts.lbfgsHistorySize, objFn.add(regularizer));
-        val quasiNewton = QuasiNewton.lbfgs(opts.lbfgsHistorySize);
-        val optimizerOpts = new NewtonMethod.Opts();
-        optimizerOpts.maxIters = opts.maxIterations;
-        optimizerOpts.iterCallback = weights -> {
-            CRFModel<String, ConllFormat.Row, String> crfModel = new CRFModel<>(featureEncoder,weightEncoder,weights);
+        // Trainer
+        CRFTrainer<String, ConllFormat.Row, String> trainer =
+            new CRFTrainer<>(trainLabeledData, predExtractor, trainOpts);
+
+        // Setup iteration callback, weird trick here where you require
+        // the trainer to make a model for each iteration but then need
+        // to modify the iteration-callback to use it
+        trainOpts.optimizerOpts.iterCallback = (weights) -> {
+            CRFModel<String, ConllFormat.Row, String> crfModel = trainer.modelForWeights(weights);
             long start = System.currentTimeMillis();
             List<List<Pair<String, ConllFormat.Row>>> trainEvalData = trainLabeledData.stream()
-                .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
+                .map(x -> x.stream().map(Pair::swap).collect(toList()))
                 .collect(toList());
+            Parallel.MROpts mrOpts = Parallel.MROpts.withThreads(opts.numThreads);
             Evaluation<String> eval = Evaluation.compute(crfModel, trainEvalData, mrOpts);
             long stop = System.currentTimeMillis();
             logger.info("Train Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
             if (!testLabeledData.isEmpty()) {
                 start = System.currentTimeMillis();
                 List<List<Pair<String, ConllFormat.Row>>> testEvalData = testLabeledData.stream()
-                    .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
+                    .map(x -> x.stream().map(Pair::swap).collect(toList()))
                     .collect(toList());
                 eval = Evaluation.compute(crfModel, testEvalData, mrOpts);
                 stop = System.currentTimeMillis();
-                logger.info("Eval Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
+                logger.info("Test Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
             }
         };
-        val optimzier = new NewtonMethod(__ -> quasiNewton, optimizerOpts);
-        Vector argMin = optimzier.minimize(cachedObjFn).xmin;
-        objFn.shutdown();
-        return argMin;
+
+        CRFModel<String, ConllFormat.Row, String> crfModel = trainer.train(trainLabeledData);
+        Vector weights = crfModel.weights();
+        val dos = new DataOutputStream(new FileOutputStream(opts.modelPath));
+        logger.info("Writing model to {}", opts.modelPath);
+        ConllFormat.saveModel(dos, templateLines, crfModel.featureEncoder, weights);
     }
 
     @SneakyThrows

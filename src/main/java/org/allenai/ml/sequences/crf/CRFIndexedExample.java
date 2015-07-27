@@ -66,12 +66,13 @@ public class CRFIndexedExample {
             offsets.add(totalOffset);
             val it = predicateVectors.get(idx).iterator();
             while (!it.isExhausted()) {
+                // Don't bother writing 0.0 valued features
                 if (it.value() != 0.0) {
                     predIndices.add((int)it.index());
                     predVals.add(it.value());
-                    it.advance();
                     totalOffset ++;
                 }
+                it.advance();
             }
         }
         return offsets;
