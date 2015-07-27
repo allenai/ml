@@ -12,9 +12,11 @@ import java.util.List;
 
 @RequiredArgsConstructor
 public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
-    private final CRFFeatureEncoder<S, O, F> featureEncoder;
-    private final CRFWeightsEncoder<S> weightsEncoder;
-    private final Vector weights;
+    public final CRFFeatureEncoder<S, O, F> featureEncoder;
+    public final CRFWeightsEncoder<S> weightsEncoder;
+    // This is private because it's mutable. The weights() method
+    // will return a copy
+    private  final Vector weights;
     @Setter
     private InferenceMode inferenceMode = InferenceMode.VITERBI;
 
@@ -22,6 +24,15 @@ public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
         VITERBI,
         MAX_TOKEN
     }
+
+    /**
+     * Return copy of weights
+     */
+    public Vector weights() {
+        return weights.copy();
+    }
+
+
 
     @Override
     public List<S> bestGuess(List<O> input) {
