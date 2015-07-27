@@ -28,6 +28,7 @@ public class CRFTrainer<S, O, F> {
         public int minExpectedFeatureCount = 1;
         // Separate from optimzierOpts since it's specific to the LBFGS choice
         // and optimizerOpts is only for general NewtonMethod options
+        // use '0' for gradient descent
         public int lbfgsHistorySize = 3;
         public NewtonMethod.Opts optimizerOpts = new NewtonMethod.Opts();
     }
