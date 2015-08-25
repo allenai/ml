@@ -69,12 +69,14 @@ public class Parallel {
     public static boolean shutdownExecutor(ExecutorService executorService, long maxMillis) {
         final long sleepInterval = 100;
         long slept = 0L;
+        executorService.shutdown();
         while (true) {
             executorService.shutdownNow();
             if (executorService.isShutdown()) {
                 return true;
             }
             Thread.sleep(sleepInterval);
+            slept += sleepInterval;
             if ((slept / sleepInterval) % 10 == 0) {
                 log.info("Slept total of {} ms waiting for thread pool shutdown", slept);
             }
