@@ -33,12 +33,30 @@ public class Parallel {
         public ExecutorService executorService;
         public double maxSecs = 1000000.0;
 
+        private static class CustomThreadFactory implements ThreadFactory {
+
+            private final String id;
+            public CustomThreadFactory(String id) {
+                this.id = id;
+            }
+
+            public Thread newThread(Runnable r) {
+                return new Thread(r, id);
+            }
+        }
+
         public static MROpts withThreads(int numThreads) {
+            return withIdAndThreads("mr-opts", numThreads);
+        }
+
+        public static MROpts withIdAndThreads(String id, int numThreads) {
             val opts = new MROpts();
             opts.numWorkers = numThreads;
-            opts.executorService = Executors.newFixedThreadPool(numThreads);
+            ThreadFactory namedThreadFactory = new CustomThreadFactory(id);
+            opts.executorService = Executors.newFixedThreadPool(numThreads, namedThreadFactory );
             return opts;
         }
+
     }
 
     @SneakyThrows
@@ -46,18 +64,22 @@ public class Parallel {
      * Trys to shutdown a thread pool and will try to do so over and over until
      * it has been successfully shutdown. The calling thread is halted up to `maxMillis`
      * to wait for the Thread pool to shutdown
+     * @returns true if shutdown was clean and false if timed-out
      */
-    public static void shutdownExecutor(ExecutorService executorService, long maxMillis) {
+    public static boolean shutdownExecutor(ExecutorService executorService, long maxMillis) {
         final long sleepInterval = 100;
         long slept = 0L;
         while (true) {
             executorService.shutdownNow();
             if (executorService.isShutdown()) {
-                break;
+                return true;
             }
             Thread.sleep(sleepInterval);
             if ((slept / sleepInterval) % 10 == 0) {
                 log.info("Slept total of {} ms waiting for thread pool shutdown", slept);
+            }
+            if (slept >= maxMillis) {
+                return false;
             }
         }
     }

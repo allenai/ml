@@ -106,7 +106,7 @@ public class CRFTrainer<S, O, F> {
         List<CRFIndexedExample> indexedData = labeledData.stream()
             .map(featureEncoder::indexLabeledExample)
             .collect(toList());
-        val mrOpts = Parallel.MROpts.withThreads(opts.numThreads);
+        val mrOpts = Parallel.MROpts.withIdAndThreads("mr-crf-training", opts.numThreads);
         BatchObjectiveFn<CRFIndexedExample> objFn =
             new BatchObjectiveFn<>(indexedData, objective, weightEncoder.numParameters(), mrOpts);
         GradientFn regularizer = Regularizer.l2(objFn.dimension(), opts.sigmaSq);

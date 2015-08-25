@@ -117,8 +117,9 @@ public class CRFFeatureEncoder<S, O, F> {
             }
         }
         log.info("Indexing features with {} prob to keep and {} threads", opts.probabilityToAccept, opts.numThreads);
-        IndexData indexData = Parallel.mapReduce(examples, new IndexWorker(),
-            Parallel.MROpts.withThreads(opts.numThreads));
+        Parallel.MROpts mrOpts = Parallel.MROpts.withIdAndThreads("mr-feature-index", opts.numThreads);
+        IndexData indexData = Parallel.mapReduce(examples, new IndexWorker(), mrOpts);
+        Parallel.shutdownExecutor(mrOpts.executorService, Long.MAX_VALUE);
         return new CRFFeatureEncoder(predicateExtractor,
             stateSpace,
             Indexer.fromStream(indexData.nodeFeatures.stream()),
