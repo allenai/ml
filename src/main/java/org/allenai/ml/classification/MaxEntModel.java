@@ -84,13 +84,15 @@ public class MaxEntModel<L, D, F> implements ProbabilisticClassifier<D, L> {
                 return PrimitiveTuples.pair(classIdx, featVec);
             })
             .collect(Collectors.toList());
-        GradientFn objFn = new BatchObjectiveFn(indexedLabeledData, maxent, dimension, Parallel.MROpts.withThreads(opts.numThreads));
+        Parallel.MROpts mrOpts = Parallel.MROpts.withIdAndThreads("mr-max-ent-train", opts.numThreads);
+        GradientFn objFn = new BatchObjectiveFn(indexedLabeledData, maxent, dimension, mrOpts);
         GradientFn regularizer = Regularizer.l2(objFn.dimension(), opts.sigmaSq);
         val cachedObjFn = new CachingGradientFn(3, objFn.add(regularizer));
         val quasiNewton = QuasiNewton.lbfgs(3);
         val optimizerOpts = opts.optimizerOpts != null ? opts.optimizerOpts : new NewtonMethod.Opts();
         val optimzier = new NewtonMethod(__ -> quasiNewton, optimizerOpts);
         Vector weights = optimzier.minimize(cachedObjFn).xmin;
+        Parallel.shutdownExecutor(mrOpts.executorService, Long.MAX_VALUE);
         return new MaxEntModel<>(featIndexer, classIndexer, weights, featureExtractor);
     }
 }
