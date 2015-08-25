@@ -106,14 +106,15 @@ public class Trainer {
         // Setup iteration callback, weird trick here where you require
         // the trainer to make a model for each iteration but then need
         // to modify the iteration-callback to use it
+        Parallel.MROpts evalMrOpts = Parallel.MROpts.withIdAndThreads("mr-crf-train-eval", opts.numThreads);
         trainOpts.optimizerOpts.iterCallback = (weights) -> {
             CRFModel<String, ConllFormat.Row, String> crfModel = trainer.modelForWeights(weights);
             long start = System.currentTimeMillis();
             List<List<Pair<String, ConllFormat.Row>>> trainEvalData = trainLabeledData.stream()
                 .map(x -> x.stream().map(Pair::swap).collect(toList()))
                 .collect(toList());
-            Parallel.MROpts mrOpts = Parallel.MROpts.withThreads(opts.numThreads);
-            Evaluation<String> eval = Evaluation.compute(crfModel, trainEvalData, mrOpts);
+
+            Evaluation<String> eval = Evaluation.compute(crfModel, trainEvalData, evalMrOpts);
             long stop = System.currentTimeMillis();
             logger.info("Train Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
             if (!testLabeledData.isEmpty()) {
@@ -121,13 +122,14 @@ public class Trainer {
                 List<List<Pair<String, ConllFormat.Row>>> testEvalData = testLabeledData.stream()
                     .map(x -> x.stream().map(Pair::swap).collect(toList()))
                     .collect(toList());
-                eval = Evaluation.compute(crfModel, testEvalData, mrOpts);
+                eval = Evaluation.compute(crfModel, testEvalData, evalMrOpts);
                 stop = System.currentTimeMillis();
                 logger.info("Test Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
             }
         };
 
         CRFModel<String, ConllFormat.Row, String> crfModel = trainer.train(trainLabeledData);
+        Parallel.shutdownExecutor(evalMrOpts.executorService, Long.MAX_VALUE);
         Vector weights = crfModel.weights();
         val dos = new DataOutputStream(new FileOutputStream(opts.modelPath));
         logger.info("Writing model to {}", opts.modelPath);

@@ -40,8 +40,10 @@ public class Evaluator {
         List<List<Pair<String, ConllFormat.Row>>> evalData = data.stream()
             .map(x -> x.stream().map(ConllFormat.Row::asLabeledPair).collect(toList()))
             .collect(toList());
-        double acc = Evaluation.compute(crf, evalData, Parallel.MROpts.withThreads(1)).tokenAccuracy.accuracy();
+        Parallel.MROpts mrOpts = Parallel.MROpts.withIdAndThreads("mr-test-eval", 1);
+        double acc = Evaluation.compute(crf, evalData, mrOpts).tokenAccuracy.accuracy();
         long stop = System.currentTimeMillis();
+        Parallel.shutdownExecutor(mrOpts.executorService, Long.MAX_VALUE);
         return Tuples.pair(acc, (double)(stop-start)/data.size());
     }
 

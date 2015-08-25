@@ -1,12 +1,15 @@
 package org.allenai.ml.sequences.crf.conll;
 
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Set;
 
 @Test
+@Slf4j
 public class ConllCRFEndToEndTest {
 
     public String filePathOfResource(String path) {
@@ -29,5 +32,8 @@ public class ConllCRFEndToEndTest {
         evalOpts.dataPath = filePathOfResource("/crf/test.data");
         val accPerfPair = Evaluator.evaluateModel(evalOpts);
         Assert.assertTrue(accPerfPair.getOne() > 0.90);
+        Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+        Assert.assertTrue(threadSet.stream().allMatch(t -> !t.getName().startsWith("mr")),
+            "Ensure no map-reduce threads left");
     }
 }
