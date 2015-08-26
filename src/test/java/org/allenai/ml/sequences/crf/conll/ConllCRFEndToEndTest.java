@@ -7,6 +7,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Test
 @Slf4j
@@ -33,7 +34,9 @@ public class ConllCRFEndToEndTest {
         val accPerfPair = Evaluator.evaluateModel(evalOpts);
         Assert.assertTrue(accPerfPair.getOne() > 0.90);
         Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
-        Assert.assertTrue(threadSet.stream().allMatch(t -> !t.getName().startsWith("mr")),
-            "Ensure no map-reduce threads left");
+        Set<Thread> badMRThreads = threadSet.stream().filter(t -> t.getName().startsWith("mr"))
+            .collect(Collectors.toSet());
+        log.info("Bad threads {}", badMRThreads);
+        Assert.assertTrue(badMRThreads.isEmpty(), "Ensure no map-reduce threads left");
     }
 }

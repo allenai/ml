@@ -37,7 +37,8 @@ public class BatchObjectiveFnTest {
             grad.scaleInPlace(-1.0);
             return -0.5 * diff * diff;
         };
-        GradientFn objFn = new BatchObjectiveFn<>(examples, regressionObjective, 2, Parallel.MROpts.withThreads(2));
+        Parallel.MROpts mrOpts = Parallel.MROpts.withIdAndThreads("mr-test-lin-regression", 2);
+        GradientFn objFn = new BatchObjectiveFn<>(examples, regressionObjective, 2, mrOpts);
         val res = objFn.apply(DenseVector.of(2));
         assertEquals(res.fx, 0.5 * (1.0 * 1.0 + 2.0 * 2.0 + 3.0 * 3.0), 1.0e-4);
 
@@ -45,5 +46,6 @@ public class BatchObjectiveFnTest {
         val minResult = minimizer.minimize(objFn);
         assertEquals(minResult.fxmin, 0.0, 1.0e-4);
         assertTrue(minResult.xmin.closeTo(DenseVector.of(1.0, 1.0)));
+        Parallel.shutdownExecutor(mrOpts.executorService, Long.MAX_VALUE);
     }
 }
