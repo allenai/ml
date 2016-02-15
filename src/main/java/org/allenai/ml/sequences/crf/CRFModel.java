@@ -36,6 +36,13 @@ public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
 
     @Override
     public List<S> bestGuess(List<O> input) {
+        if (input.size() < 2) {
+            throw new IllegalArgumentException("Need to have at least two elements");
+        }
+        if (input.size() == 2) {
+            // only have start stop, so return empty (unpadded)
+            return new ArrayList<>();
+        }
         input = new ArrayList<>(input);
         val indexedExample = featureEncoder.indexedExample(input);
         double[][] potentials = weightsEncoder.fillPotentials(weights, indexedExample);
