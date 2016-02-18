@@ -27,7 +27,7 @@ bintray {
     licenses = ['Apache-2.0']
     vcsUrl = 'https://github.com/allenai/ml.git'
     version {
-      name = '0.10'
+      name = mlVersion
     }
   }  
 }
@@ -38,7 +38,7 @@ publishing {
       from components.java
       groupId 'org.allenai'
       artifactId 'ml'
-      version '0.10'
+      version mlVersion 
     }
   }
 }
@@ -61,7 +61,7 @@ sourceSets {
     }
 }
 
-version = '0.10'
+version = mlVersion
 group = 'org.allenai'
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
