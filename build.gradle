@@ -1,5 +1,6 @@
 plugins {
     id 'me.champeau.gradle.jmh' version '0.2.0'
+    id "com.jfrog.bintray" version "1.6"
 }
 
 apply plugin: 'java'
@@ -8,10 +9,38 @@ apply plugin: 'jacoco'
 apply plugin: 'maven'
 apply plugin: 'me.champeau.gradle.jmh'
 apply plugin: 'maven'
+apply plugin: 'maven-publish'
 
 repositories {
     mavenCentral()
     jcenter()
+}
+
+bintray {
+  user = System.getenv('BINTRAY_USER')
+  key = System.getenv('BINTRAY_KEY')
+  publications = ['CompletePublication']
+  pkg {
+    repo = 'maven'  // Yes, the repo is called maven. Super confusing.
+    name = 'ml'
+    userOrg = 'allenai'
+    licenses = ['Apache-2.0']
+    vcsUrl = 'https://github.com/allenai/ml.git'
+    version {
+      name = '0.10'
+    }
+  }  
+}
+
+publishing {
+  publications {
+    CompletePublication(MavenPublication) {
+      from components.java
+      groupId 'org.allenai'
+      artifactId 'ml'
+      version '0.10'
+    }
+  }
 }
 
 test {
@@ -32,7 +61,7 @@ sourceSets {
     }
 }
 
-version = '0.10-SNAPSHOT'
+version = '0.10'
 group = 'org.allenai'
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
