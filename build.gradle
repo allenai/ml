@@ -32,7 +32,7 @@ sourceSets {
     }
 }
 
-version = '0.10-SNAPSHOT'
+version = '0.10'
 group = 'org.allenai'
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
