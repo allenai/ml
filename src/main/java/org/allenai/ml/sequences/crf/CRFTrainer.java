@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
@@ -20,7 +21,7 @@ public class CRFTrainer<S, O, F> {
 
     private final static Logger logger = LoggerFactory.getLogger(CRFTrainer.class);
 
-    public static class Opts {
+    public static class Opts<S, O, F> {
         public int numThreads = 1;
         public double sigmaSq = 1.0;
         // Flop a coin with the 1.0/value to decide
@@ -30,7 +31,12 @@ public class CRFTrainer<S, O, F> {
         // and optimizerOpts is only for general NewtonMethod options
         // use '0' for gradient descent
         public int lbfgsHistorySize = 3;
+        // Note: CRFTrainer will override the optimzierOpts.iterCallback
+        // with its own callback
         public NewtonMethod.Opts optimizerOpts = new NewtonMethod.Opts();
+        // Callback given CRFModel to continue after each iter
+        // defaults to always continuing
+        public Predicate<CRFModel<S, O, F>> iterCallback = (model) -> true;
     }
 
     public final CRFFeatureEncoder<S, O, F> featureEncoder;
@@ -112,6 +118,7 @@ public class CRFTrainer<S, O, F> {
         GradientFn regularizer = Regularizer.l2(objFn.dimension(), opts.sigmaSq);
         val cachedObjFn = new CachingGradientFn(opts.lbfgsHistorySize, objFn.add(regularizer));
         val quasiNewton = QuasiNewton.lbfgs(opts.lbfgsHistorySize);
+        opts.optimizerOpts.iterCallback = (ws) -> opts.iterCallback.test(modelForWeights(ws));
         val optimzier = new NewtonMethod(__ -> quasiNewton, opts.optimizerOpts);
         Vector weights = optimzier.minimize(cachedObjFn).xmin;
         objFn.shutdown();

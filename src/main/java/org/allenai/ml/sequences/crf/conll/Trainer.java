@@ -1,6 +1,7 @@
 package org.allenai.ml.sequences.crf.conll;
 
 import org.allenai.ml.eval.FMeasure;
+import org.allenai.ml.eval.TrainCriterionEval;
 import org.allenai.ml.linalg.Vector;
 import org.allenai.ml.objective.BatchObjectiveFn;
 import org.allenai.ml.optimize.*;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.ToDoubleFunction;
 import java.util.stream.Collectors;
 
 import static org.allenai.ml.util.IOUtils.linesFromPath;
@@ -55,8 +57,10 @@ public class Trainer {
         public int lbfgsHistorySize = 3;
 
         @Option(name = "-testSplitRatio", usage = "Data to hold for eval ever iter")
-        public double testSplitRatio = 0.0;
+        public double testSplitRatio = 0.2;
 
+        @Option(name= "-maxNumDipIters", usage = "How many iterations after test eval drop to continue training")
+        public int maxNumDipIters = 3;
     }
 
     private static <T> Pair<List<T>, List<T>> splitData(List<T> original, double splitForSecond) {
@@ -78,6 +82,7 @@ public class Trainer {
     public static void trainAndSaveModel(Opts opts) {
         // Load labeled data
         List<String> templateLines = linesFromPath(opts.templateFile).collect(toList());
+        logger.info("Loading train data from {}", opts.trainPath);
         val predExtractor = ConllFormat.predicatesFromTemplate(templateLines.stream());
         List<List<Pair<ConllFormat.Row, String>>> labeledData = ConllFormat
             .readData(linesFromPath(opts.trainPath), true)
@@ -87,15 +92,16 @@ public class Trainer {
 
         // Split train/test data
         logger.info("CRF training with {} threads and {} labeled examples", opts.numThreads, labeledData.size());
-        val trainTestPair =
-            splitData(labeledData, opts.testSplitRatio);
+        val trainTestPair = splitData(labeledData, opts.testSplitRatio);
         List<List<Pair<ConllFormat.Row, String>>> trainLabeledData = trainTestPair.getOne();
         List<List<Pair<ConllFormat.Row, String>>> testLabeledData = trainTestPair.getTwo();
 
         // Set up Train options
-        CRFTrainer.Opts trainOpts = new CRFTrainer.Opts();
+        CRFTrainer.Opts<String, ConllFormat.Row, String> trainOpts =
+            new CRFTrainer.Opts<>();
         trainOpts.sigmaSq = opts.sigmaSquared;
         trainOpts.lbfgsHistorySize = opts.lbfgsHistorySize;
+        trainOpts.optimizerOpts.maxIters = opts.maxIterations;
         trainOpts.minExpectedFeatureCount = (int) (1.0/opts.featureKeepProb);
         trainOpts.numThreads = opts.numThreads;
 
@@ -107,29 +113,30 @@ public class Trainer {
         // the trainer to make a model for each iteration but then need
         // to modify the iteration-callback to use it
         Parallel.MROpts evalMrOpts = Parallel.MROpts.withIdAndThreads("mr-crf-train-eval", opts.numThreads);
-        trainOpts.optimizerOpts.iterCallback = (weights) -> {
-            CRFModel<String, ConllFormat.Row, String> crfModel = trainer.modelForWeights(weights);
-            long start = System.currentTimeMillis();
-            List<List<Pair<String, ConllFormat.Row>>> trainEvalData = trainLabeledData.stream()
-                .map(x -> x.stream().map(Pair::swap).collect(toList()))
-                .collect(toList());
-
-            Evaluation<String> eval = Evaluation.compute(crfModel, trainEvalData, evalMrOpts);
-            long stop = System.currentTimeMillis();
-            logger.info("Train Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
-            if (!testLabeledData.isEmpty()) {
-                start = System.currentTimeMillis();
-                List<List<Pair<String, ConllFormat.Row>>> testEvalData = testLabeledData.stream()
-                    .map(x -> x.stream().map(Pair::swap).collect(toList()))
-                    .collect(toList());
-                eval = Evaluation.compute(crfModel, testEvalData, evalMrOpts);
-                stop = System.currentTimeMillis();
-                logger.info("Test Accuracy: {} (took {} ms)", eval.tokenAccuracy.accuracy(), stop-start);
-            }
+        List<List<Pair<String, ConllFormat.Row>>> trainEvalData = trainLabeledData.stream()
+            .map(x -> x.stream().map(Pair::swap).collect(toList()))
+            .collect(toList());
+        List<List<Pair<String, ConllFormat.Row>>> testEvalData = testLabeledData.stream()
+            .map(x -> x.stream().map(Pair::swap).collect(toList()))
+            .collect(toList());
+        ToDoubleFunction<CRFModel<String, ConllFormat.Row, String>> trainEvalFn = (model) -> {
+            Evaluation<String> eval = Evaluation.compute(model, trainEvalData, evalMrOpts);
+            return eval.tokenAccuracy.accuracy();
         };
-
-        CRFModel<String, ConllFormat.Row, String> crfModel = trainer.train(trainLabeledData);
-        Parallel.shutdownExecutor(evalMrOpts.executorService, Long.MAX_VALUE);
+        ToDoubleFunction<CRFModel<String, ConllFormat.Row, String>> testEvalFn = (model) -> {
+            Evaluation<String> eval = Evaluation.compute(model, testEvalData, evalMrOpts);
+            return eval.tokenAccuracy.accuracy();
+        };
+        TrainCriterionEval<CRFModel<String, ConllFormat.Row, String>> criterion = new TrainCriterionEval<>(testEvalFn);
+        criterion.maxNumDipIters = opts.maxNumDipIters;
+        trainOpts.iterCallback = (CRFModel<String, ConllFormat.Row, String> crfModel) -> {
+            logger.info("Train Accuracy: {}", trainEvalFn.applyAsDouble(crfModel));
+            return criterion.test(crfModel);
+        };
+        trainer.train(trainLabeledData);
+        // Criterion may have better model than last iteration
+        CRFModel<String, ConllFormat.Row, String> crfModel = criterion.getBestModel();
+            Parallel.shutdownExecutor(evalMrOpts.executorService, Long.MAX_VALUE);
         Vector weights = crfModel.weights();
         val dos = new DataOutputStream(new FileOutputStream(opts.modelPath));
         logger.info("Writing model to {}", opts.modelPath);

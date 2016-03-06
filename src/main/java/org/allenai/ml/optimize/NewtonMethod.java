@@ -6,6 +6,7 @@ import lombok.val;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Family of gradient minimizer based on Newton's method. Each iteration of the algorithm takes a current
@@ -25,7 +26,7 @@ public class NewtonMethod implements GradientFnMinimizer {
         public double alpha = 0.5;
         public double beta = 0.01;
         public double stepLenTolerance = 1.0e-10;
-        public Consumer<Vector> iterCallback;
+        public Predicate<Vector> iterCallback;
         public LineMinimizer lineMinimizer() {
             return BacktrackingLineMinimizer.of(alpha, beta, stepLenTolerance);
         }
@@ -76,8 +77,13 @@ public class NewtonMethod implements GradientFnMinimizer {
             // update
             qn.update(xnew.add(-1.0,x), newRes.grad.add(-1.0, curRes.grad));
             x = xnew;
+            boolean shouldContinue = true;
             if (opts.iterCallback != null) {
-                opts.iterCallback.accept(x);
+                shouldContinue = opts.iterCallback.test(x);
+            }
+            if (!shouldContinue) {
+                log.info("Custom callback triggered stop");
+                break;
             }
         }
         return Result.of(gradFn.apply(x).fx, x);
