@@ -12,7 +12,7 @@ import java.util.function.ToDoubleFunction;
 public class TrainCriterionEval<M> implements Predicate<M> {
   private final ToDoubleFunction<M> baseEvalFn;
   private int numIters = 0;
-  private int dipIter = -1;
+  private int numDipIters = -1;
   private double lastVal = Double.NEGATIVE_INFINITY;
   public M bestModel = null;
 
@@ -50,8 +50,8 @@ public class TrainCriterionEval<M> implements Predicate<M> {
     this.numIters++;
 
     if (delta > this.dipTolerance) {
-      int numDipIters = this.numIters - this.dipIter;
-      if (numDipIters > this.maxNumDipIters) {
+      this.numDipIters = this.numDipIters >= 0 ? this.numDipIters + 1 : 1;
+      if (this.numDipIters > this.maxNumDipIters) {
         log.info("Exceeded max dip iters, bailing");
         return false;
       } else {
@@ -59,7 +59,7 @@ public class TrainCriterionEval<M> implements Predicate<M> {
         log.info("Another down iteration, waiting " + numLeft + " more iters");
       }
     } else {
-      dipIter = -1;
+      this.numDipIters = -1;
       lastVal = testEval;
       bestModel = m;
     }
