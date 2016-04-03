@@ -74,7 +74,7 @@ public class CRFFeatureEncoder<S, O, F> {
         private double probabilityToAccept = 1.0;
     }
 
-    public static <S, O, F> CRFFeatureEncoder build(
+    public static <S, O, F extends Comparable<F>> CRFFeatureEncoder build(
             List<List<O>> examples,
             CRFPredicateExtractor<O, F> predicateExtractor,
             StateSpace<S> stateSpace,
@@ -108,6 +108,9 @@ public class CRFFeatureEncoder<S, O, F> {
 
             private void stochasticAddAll(Random rand, Set<F> set, List<ObjectDoubleMap<F>> featVecs) {
                 for (ObjectDoubleMap<F> featVec : featVecs) {
+                    Set<F> fSet = featVec.keySet();
+                    List<F> fList = new ArrayList<>(fSet);
+                    Collections.sort(fList);
                     for (F f : featVec.keysView()) {
                         if (rand.nextDouble() < opts.probabilityToAccept) {
                             set.add(f);

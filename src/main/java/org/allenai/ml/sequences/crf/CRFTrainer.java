@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
-public class CRFTrainer<S, O, F> {
+public class CRFTrainer<S, O, F extends Comparable<F>> {
 
     private final static Logger logger = LoggerFactory.getLogger(CRFTrainer.class);
 
