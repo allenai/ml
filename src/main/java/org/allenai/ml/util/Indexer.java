@@ -105,7 +105,7 @@ public class Indexer<T> extends AbstractList<T> {
 
     public void save(DataOutputStream dos) throws IOException {
         dos.writeUTF(DATA_VERSION);
-        IOUtils.saveList(dos, this.stream().map(Object::toString).collect(Collectors.toList()));
+        IOUtils.saveList(dos, list.stream().map(Object::toString).collect(Collectors.toList()));
     }
 
     public static Indexer<String> load(DataInputStream dis) throws IOException {

@@ -31,7 +31,7 @@ public class IOUtils {
     public static void saveDoubles(DataOutputStream dos, double[] xs) {
         dos.writeInt(xs.length);
         for (int idx = 0; idx < xs.length; idx++) {
-            dos.writeFloat((float) xs[idx]);
+            dos.writeDouble(xs[idx]);
         }
     }
 
@@ -40,7 +40,7 @@ public class IOUtils {
         int n = dis.readInt();
         double[] xs = new double[n];
         for (int idx = 0; idx < n; idx++) {
-            xs[idx] = dis.readFloat();
+            xs[idx] = dis.readDouble();
         }
         return xs;
     }
@@ -51,13 +51,13 @@ public class IOUtils {
     }
 
     private final static int INDEXER_BLOCK_SIZE = 1000;
+    private final static Charset UTF8 = Charset.forName("UTF8");
 
     @SneakyThrows
     public static void saveList(DataOutputStream dos, List<String> elems) {
         dos.writeInt(elems.size());
-        Charset utf8 = Charset.forName("UTF8");
         for (String elem: elems) {
-            byte[] elemBytes = elem.getBytes();
+            byte[] elemBytes = elem.getBytes(UTF8);
             dos.writeInt(elemBytes.length);
             dos.write(elemBytes);
         }
@@ -66,13 +66,15 @@ public class IOUtils {
     @SneakyThrows
     public static List<String> loadList(DataInputStream dis) {
         int n = dis.readInt();
-        Charset utf8 = Charset.forName("UTF8");
         val lst = new ArrayList<String>(n);
         for (int idx = 0; idx < n; idx++) {
             int strLen = dis.readInt();
             byte[] elemBytes = new byte[strLen];
-            dis.read(elemBytes);
-            String elem = new String(elemBytes, utf8);
+            int numRead = dis.read(elemBytes);
+            if (numRead != strLen) {
+                throw new RuntimeException("Bad model file, read " + numRead + " but expected " + strLen);
+            }
+            String elem = new String(elemBytes, UTF8);
             lst.add(elem);
         }
         return lst;
