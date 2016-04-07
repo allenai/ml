@@ -123,7 +123,7 @@ public class SparseVector implements Vector {
       return result;
     }
 
-    public static <T> SparseVector indexed(ObjectDoubleMap<T> map, Indexer<T> indexer) {
+    public static <T extends Comparable<T>> SparseVector indexed(ObjectDoubleMap<T> map, Indexer<T> indexer) {
         val ldm = new LongDoubleHashMap(map.size());
         map.forEachKeyValue((k, v) -> {
             int idx = indexer.indexOf(k);

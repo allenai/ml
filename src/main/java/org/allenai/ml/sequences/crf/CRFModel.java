@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RequiredArgsConstructor
-public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
+public class CRFModel<S, O, F extends Comparable<F>> implements SequenceTagger<S, O> {
     public final CRFFeatureEncoder<S, O, F> featureEncoder;
     public final CRFWeightsEncoder<S> weightsEncoder;
     // This is private because it's mutable. The weights() method
@@ -34,7 +34,7 @@ public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
     }
 
 
-    private static <F> List<String> diff(String prefix, Indexer<F> x, Indexer<F> y) {
+    private static <F extends Comparable<F>> List<String> diff(String prefix, Indexer<F> x, Indexer<F> y) {
         List<String> res = new ArrayList<>();
         if (x.size() != y.size()) {
             res.add(prefix + " - size diff " + x.size() + " != " + y.size());

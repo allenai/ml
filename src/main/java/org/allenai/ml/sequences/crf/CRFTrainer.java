@@ -21,7 +21,7 @@ public class CRFTrainer<S, O, F extends Comparable<F>> {
 
     private final static Logger logger = LoggerFactory.getLogger(CRFTrainer.class);
 
-    public static class Opts<S, O, F> {
+    public static class Opts<S, O, F extends Comparable<F>> {
         public int numThreads = 1;
         public double sigmaSq = 1.0;
         // Flop a coin with the 1.0/value to decide
