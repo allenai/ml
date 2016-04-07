@@ -90,7 +90,7 @@ public class Indexer<T extends Comparable<T>> extends AbstractList<T> {
     }
 
 
-    public static <T> Indexer<T> fromStream(Stream<T> stream) {
+    public static <T extends Comparable<T>> Indexer<T> fromStream(Stream<T> stream) {
         return new Indexer<>(stream);
     }
 
