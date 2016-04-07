@@ -7,12 +7,9 @@ import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileReader;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class IOUtils {
@@ -51,13 +48,13 @@ public class IOUtils {
     }
 
     private final static int INDEXER_BLOCK_SIZE = 1000;
-    private final static Charset UTF8 = Charset.forName("UTF8");
+    private final static Charset UTF_16 = Charset.forName("UTF16");
 
     @SneakyThrows
     public static void saveList(DataOutputStream dos, List<String> elems) {
         dos.writeInt(elems.size());
         for (String elem: elems) {
-            byte[] elemBytes = elem.getBytes(UTF8);
+            byte[] elemBytes = elem.getBytes(UTF_16);
             dos.writeInt(elemBytes.length);
             dos.write(elemBytes);
         }
@@ -74,7 +71,7 @@ public class IOUtils {
             if (numRead != strLen) {
                 throw new RuntimeException("Bad model file, read " + numRead + " but expected " + strLen);
             }
-            String elem = new String(elemBytes, UTF8);
+            String elem = new String(elemBytes, UTF_16);
             lst.add(elem);
         }
         return lst;

@@ -67,7 +67,7 @@ public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
     public List<String> diff(CRFModel<S, O, F> otherModel) {
         List<String> res = new ArrayList<>();
         res.addAll(diff("nodeFeatures", this.featureEncoder.nodeFeatures, otherModel.featureEncoder.nodeFeatures));
-        res.addAll(diff("edgeFeatures", this.featureEncoder.nodeFeatures, otherModel.featureEncoder.nodeFeatures));
+        res.addAll(diff("edgeFeatures", this.featureEncoder.edgeFeatures, otherModel.featureEncoder.edgeFeatures));
         res.addAll(diff("weightDiffs", this.weights, otherModel.weights));
         return res;
     }

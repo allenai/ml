@@ -105,6 +105,9 @@ public class Indexer<T> extends AbstractList<T> {
 
     public void save(DataOutputStream dos) throws IOException {
         dos.writeUTF(DATA_VERSION);
+        if (list.size() != objToIndex.size()) {
+            throw new RuntimeException("Trying to save indexer with list/set size mismatch");
+        }
         IOUtils.saveList(dos, list.stream().map(Object::toString).collect(Collectors.toList()));
     }
 
