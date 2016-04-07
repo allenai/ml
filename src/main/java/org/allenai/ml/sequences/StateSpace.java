@@ -36,7 +36,7 @@ public class StateSpace<S> {
      */
     public StateSpace(List<S> states, List<Pair<S, S>> transitionPairs) {
         if (states.size() != new HashSet<>(states).size()) {
-            throw new IllegalArgumentException("Passed in duplicate states");
+            throw new IllegalArgumentException("Passed in duplicate states: " + states);
         }
         if (transitionPairs.size() != new HashSet<>(transitionPairs).size()) {
             throw new IllegalArgumentException("Passed in transition pairs");
