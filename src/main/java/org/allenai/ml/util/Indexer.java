@@ -102,7 +102,7 @@ public class Indexer<T extends Comparable<T>> extends AbstractList<T> {
         return m;
     }
 
-    private final static String DATA_VERSION = "1.0";
+    private final static String DATA_VERSION = "2.0";
 
     public void save(DataOutputStream dos) throws IOException {
         dos.writeUTF(DATA_VERSION);
