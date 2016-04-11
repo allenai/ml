@@ -10,3 +10,8 @@ out/**
 *.ipr
 *.iws
 *.iml
+
+# IntelliJ Gradle Plugin
+/gradlew
+/gradlew.bat
+/gradle/

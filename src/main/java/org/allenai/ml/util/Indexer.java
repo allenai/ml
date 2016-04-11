@@ -10,10 +10,8 @@ import org.allenai.ml.linalg.Vector;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.List;
-import java.util.Iterator;
-import java.util.AbstractList;
 import java.util.stream.Stream;
 
 /**
@@ -21,7 +19,7 @@ import java.util.stream.Stream;
  * does not permit duplicate elements.
  * @param <T>
  */
-public class Indexer<T> extends AbstractList<T> {
+public class Indexer<T extends Comparable<T>> extends AbstractList<T> {
 
     private final List<T> list;
     private final ObjectIntMap<T> objToIndex;
@@ -30,6 +28,9 @@ public class Indexer<T> extends AbstractList<T> {
         this.list = elems
             .distinct()
             .collect(Collectors.toList());
+        // Ensure unique representation of indexer
+        // for a set of strings
+        Collections.sort(this.list);
         val m = new ObjectIntHashMap<T>();
         for (int idx = 0; idx < list.size(); idx++) {
             m.put(list.get(idx), idx);
@@ -89,7 +90,7 @@ public class Indexer<T> extends AbstractList<T> {
     }
 
 
-    public static <T> Indexer<T> fromStream(Stream<T> stream) {
+    public static <T extends Comparable<T>> Indexer<T> fromStream(Stream<T> stream) {
         return new Indexer<>(stream);
     }
 
@@ -105,7 +106,10 @@ public class Indexer<T> extends AbstractList<T> {
 
     public void save(DataOutputStream dos) throws IOException {
         dos.writeUTF(DATA_VERSION);
-        IOUtils.saveList(dos, this.stream().map(Object::toString).collect(Collectors.toList()));
+        if (list.size() != objToIndex.size()) {
+            throw new RuntimeException("Trying to save indexer with list/set size mismatch");
+        }
+        IOUtils.saveList(dos, list.stream().map(Object::toString).collect(Collectors.toList()));
     }
 
     public static Indexer<String> load(DataInputStream dis) throws IOException {

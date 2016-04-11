@@ -6,12 +6,13 @@ import org.allenai.ml.sequences.SequenceTagger;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.val;
+import org.allenai.ml.util.Indexer;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @RequiredArgsConstructor
-public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
+public class CRFModel<S, O, F extends Comparable<F>> implements SequenceTagger<S, O> {
     public final CRFFeatureEncoder<S, O, F> featureEncoder;
     public final CRFWeightsEncoder<S> weightsEncoder;
     // This is private because it's mutable. The weights() method
@@ -31,8 +32,6 @@ public class CRFModel<S, O, F> implements SequenceTagger<S, O> {
     public Vector weights() {
         return weights.copy();
     }
-
-
 
     @Override
     public List<S> bestGuess(List<O> input) {

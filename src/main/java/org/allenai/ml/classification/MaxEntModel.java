@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @RequiredArgsConstructor
-public class MaxEntModel<L, D, F> implements ProbabilisticClassifier<D, L> {
+public class MaxEntModel<L extends Comparable<L>, D, F extends Comparable<F>> implements ProbabilisticClassifier<D, L> {
     private final Indexer<F> featureIndexer;
     private final Indexer<L> classIndexer;
     private final Vector weights;
@@ -34,7 +34,7 @@ public class MaxEntModel<L, D, F> implements ProbabilisticClassifier<D, L> {
     @Override
     public ObjectDoubleMap<L> probabilities(D datum) {
         ObjectDoubleMap<F> featureMap = featureExtractor.features(datum);
-        val featVec = SparseVector.indexed(featureMap, featureIndexer);
+        SparseVector featVec = SparseVector.indexed(featureMap, featureIndexer);
         double[] classProbs = MaxEntObjective.classProbs(featVec, weights, classIndexer.size());
         return classIndexer.toMap(DenseVector.of(classProbs));
     }
@@ -72,8 +72,8 @@ public class MaxEntModel<L, D, F> implements ProbabilisticClassifier<D, L> {
         Stream<String> allFeats = labeledData.stream()
             .flatMap(pair ->  featureExtractor.features(pair.getOne()).keySet().stream())
             .filter(f -> rand.nextDouble() < probAccept);
-        Indexer<String> featIndexer = Indexer.fromStream(allFeats);
-        Indexer<String> classIndexer = Indexer.fromStream(labeledData.stream().map(Pair::getTwo));
+        Indexer<String> featIndexer = Indexer.<String>fromStream(allFeats);
+        Indexer<String> classIndexer = Indexer.<String>fromStream(labeledData.stream().map(Pair::getTwo));
         MaxEntObjective maxent = new MaxEntObjective(classIndexer.size());
         long dimension = featIndexer.size() * classIndexer.size();
         List<IntObjectPair<Vector>> indexedLabeledData = labeledData.stream()
