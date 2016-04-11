@@ -47,33 +47,19 @@ public class IOUtils {
         return new BufferedReader(new FileReader(path)).lines();
     }
 
-    private final static int INDEXER_BLOCK_SIZE = 1000;
-    private final static Charset UTF_16 = Charset.forName("UTF16");
-
     @SneakyThrows
     public static void saveList(DataOutputStream dos, List<String> elems) {
         dos.writeInt(elems.size());
-        for (String elem: elems) {
-            byte[] elemBytes = elem.getBytes(UTF_16);
-            dos.writeInt(elemBytes.length);
-            dos.write(elemBytes);
-        }
+        for (String elem: elems)
+            dos.writeUTF(elem);
     }
 
     @SneakyThrows
     public static List<String> loadList(DataInputStream dis) {
         int n = dis.readInt();
         val lst = new ArrayList<String>(n);
-        for (int idx = 0; idx < n; idx++) {
-            int strLen = dis.readInt();
-            byte[] elemBytes = new byte[strLen];
-            int numRead = dis.read(elemBytes);
-            if (numRead != strLen) {
-                throw new RuntimeException("Bad model file, read " + numRead + " but expected " + strLen);
-            }
-            String elem = new String(elemBytes, UTF_16);
-            lst.add(elem);
-        }
+        for (int idx = 0; idx < n; idx++)
+            lst.add(dis.readUTF());
         return lst;
     }
 }
