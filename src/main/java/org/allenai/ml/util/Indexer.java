@@ -28,9 +28,6 @@ public class Indexer<T extends Comparable<T>> extends AbstractList<T> {
         this.list = elems
             .distinct()
             .collect(Collectors.toList());
-        // Ensure unique representation of indexer
-        // for a set of strings
-        Collections.sort(this.list);
         val m = new ObjectIntHashMap<T>();
         for (int idx = 0; idx < list.size(); idx++) {
             m.put(list.get(idx), idx);

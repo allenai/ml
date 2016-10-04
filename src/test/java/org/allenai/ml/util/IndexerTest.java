@@ -23,7 +23,7 @@ public class IndexerTest {
         assertTrue( avengers.contains("cap") );
         assertFalse(avengers.contains("made-up"));
         Object[] arr = avengers.toArray();
-        assertEquals( arr, new String[]{"cap", "hulk", "iron-man"} );
+        assertEquals( arr, new String[]{"cap", "iron-man", "hulk"} );
         assertEquals( avengers, avengers.subList(0, avengers.size()) );
 
     }
