@@ -1,6 +1,6 @@
 # ML Components
 
-Repository for low-level production-grade ML inference. The current motivating example is CRF inference. It's currently 100% Java, but can also have Scala too.
+Repository for low-level production-grade ML inference. The current motivating example is the CRF inference component which is used in the AI2 fork of Grobid and Science Parse. It's currently 100% Java, but can also have Scala too.
 
 ## Getting Started
 
