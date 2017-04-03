@@ -1,6 +1,6 @@
 plugins {
     id 'me.champeau.gradle.jmh' version '0.2.0'
-    id "com.jfrog.bintray" version "1.6"
+    id "com.jfrog.bintray" version "1.7.3"
 }
 
 apply plugin: 'java'
@@ -22,7 +22,7 @@ bintray {
   publications = ['CompletePublication']
   pkg {
     repo = 'maven'  // Yes, the repo is called maven. Super confusing.
-    name = 'ml'
+    name = 'org.allenai:ml'
     userOrg = 'allenai'
     licenses = ['Apache-2.0']
     vcsUrl = 'https://github.com/allenai/ml.git'
